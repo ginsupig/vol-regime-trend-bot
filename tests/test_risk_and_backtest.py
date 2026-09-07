@@ -27,7 +27,9 @@ def test_run_backtest_returns_metrics_and_result_columns():
 
 def test_run_backtest_metrics_are_consistent_with_results():
     data = pd.DataFrame({"close": [100, 101, 102, 101, 103, 104, 103, 105]})
-    cfg = BacktestConfig(trend_window=2, vol_window=2, max_volatility=0.2, fee_bps=0.0)
+    cfg = BacktestConfig(
+        trend_window=2, vol_window=2, max_volatility=0.2, fee_bps=0.0, periods_per_year=252
+    )
 
     out = run_backtest(data, cfg)
     results = out["results"]
@@ -36,6 +38,10 @@ def test_run_backtest_metrics_are_consistent_with_results():
     observed_periods = max(len(results["net_return"]) - 1, 1)
     expected_annual = (1.0 + metrics["total_return"]) ** (252 / observed_periods) - 1.0
     assert metrics["annual_return"] == pytest.approx(expected_annual)
+    expected_sharpe = (
+        results["net_return"].mean() / results["net_return"].std(ddof=0) * (cfg.periods_per_year**0.5)
+    )
+    assert metrics["sharpe"] == pytest.approx(expected_sharpe)
 
     active = (results["position"].shift(1).fillna(0.0) != 0.0) | (
         (results["position"] - results["position"].shift(1).fillna(0.0)).abs() > 0.0

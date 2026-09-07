@@ -9,6 +9,7 @@ vol-regime-backtest --csv /path/to/prices.csv
 ```
 
 CSV input must include a `close` column by default (or pass `--price-column`).
+Use `--periods-per-year` to match your data frequency (default `252` for daily bars).
 
 ## What is implemented
 

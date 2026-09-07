@@ -40,17 +40,18 @@ def run_backtest(
 
     equity_curve = (1.0 + net_return).cumprod()
 
-    periods_per_year = 252
+    periods_per_year = config.periods_per_year
     observed_periods = max(len(net_return) - 1, 1)
     terminal_equity = float(equity_curve.iloc[-1])
     total_return = terminal_equity - 1.0
+    avg = float(net_return.mean())
     vol = float(net_return.std(ddof=0))
     if terminal_equity > 0:
         annual_return = terminal_equity ** (periods_per_year / observed_periods) - 1.0
     else:
         annual_return = -1.0
     annual_vol = vol * np.sqrt(periods_per_year)
-    sharpe = annual_return / annual_vol if annual_vol > 0 else 0.0
+    sharpe = (avg / vol) * np.sqrt(periods_per_year) if vol > 0 else 0.0
 
     rolling_peak = equity_curve.cummax()
     drawdown = equity_curve / rolling_peak - 1.0

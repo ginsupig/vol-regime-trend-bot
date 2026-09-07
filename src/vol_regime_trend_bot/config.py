@@ -9,6 +9,7 @@ class BacktestConfig:
     max_abs_position: float = 1.0
     max_position_change: float = 0.25
     fee_bps: float = 2.0
+    periods_per_year: int = 252
 
     def validate(self) -> None:
         if self.trend_window <= 1:
@@ -23,3 +24,5 @@ class BacktestConfig:
             raise ValueError("max_position_change must be > 0")
         if self.fee_bps < 0:
             raise ValueError("fee_bps must be >= 0")
+        if self.periods_per_year <= 0:
+            raise ValueError("periods_per_year must be > 0")

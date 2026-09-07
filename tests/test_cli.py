@@ -39,6 +39,8 @@ def test_cli_passes_arguments_to_backtest(monkeypatch, capsys):
             "0.2",
             "--fee-bps",
             "3",
+            "--periods-per-year",
+            "365",
         ],
     )
 
@@ -52,6 +54,7 @@ def test_cli_passes_arguments_to_backtest(monkeypatch, capsys):
     assert captured["config"].max_abs_position == pytest.approx(0.8)
     assert captured["config"].max_position_change == pytest.approx(0.2)
     assert captured["config"].fee_bps == pytest.approx(3.0)
+    assert captured["config"].periods_per_year == 365
 
     output = capsys.readouterr().out
     assert '"total_return": 0.1' in output

@@ -17,6 +17,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-abs-position", type=float, default=1.0)
     parser.add_argument("--max-position-change", type=float, default=0.25)
     parser.add_argument("--fee-bps", type=float, default=2.0)
+    parser.add_argument("--periods-per-year", type=int, default=252)
     return parser
 
 
@@ -35,6 +36,7 @@ def main() -> None:
             max_abs_position=args.max_abs_position,
             max_position_change=args.max_position_change,
             fee_bps=args.fee_bps,
+            periods_per_year=args.periods_per_year,
         )
 
         data = pd.read_csv(args.csv)

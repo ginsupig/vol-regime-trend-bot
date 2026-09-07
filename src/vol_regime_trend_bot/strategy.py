@@ -28,11 +28,13 @@ def generate_raw_signals(prices: list[float], returns: list[float], config: Stra
 
     signals: list[float] = []
     for i in range(len(returns)):
-        price = prices[i]
-        trend = 1.0 if price >= _rolling_mean(prices, i, config.trend_window) else 0.0
         if i == 0:
+            trend = 0.0
             realized_vol = 0.0
         else:
+            prior_price = prices[i - 1]
+            trend_mean = _rolling_mean(prices, i - 1, config.trend_window)
+            trend = 1.0 if prior_price >= trend_mean else 0.0
             realized_vol = _rolling_pstd(returns, i - 1, config.vol_window)
         regime = 1.0 if realized_vol <= config.vol_threshold else 0.0
         signals.append(1.0 if trend > 0 and regime > 0 else 0.0)

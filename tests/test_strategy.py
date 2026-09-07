@@ -10,6 +10,7 @@ def test_generate_raw_signals_in_risk_on_trend():
     signals = generate_raw_signals(prices, returns, config)
 
     assert len(signals) == len(prices) - 1
+    assert signals[0] == 0.0
     assert signals[-1] == 1.0
 
 
@@ -20,4 +21,14 @@ def test_generate_raw_signals_uses_prior_returns_for_vol_regime():
 
     signals = generate_raw_signals(prices, returns, config)
 
-    assert signals == [1.0, 1.0]
+    assert signals == [0.0, 1.0]
+
+
+def test_generate_raw_signals_uses_prior_price_for_trend():
+    prices = [100, 50, 50]
+    returns = [-0.5, 0.0]
+    config = StrategyConfig(vol_window=2, trend_window=2, vol_threshold=1.0)
+
+    signals = generate_raw_signals(prices, returns, config)
+
+    assert signals == [0.0, 1.0]

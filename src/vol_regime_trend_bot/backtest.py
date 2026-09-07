@@ -117,6 +117,48 @@ def run_backtest(
         processed_signal = signal_frame.loc[mask]
         processed_target = rate_limited_target.loc[mask]
         processed_returns = returns.loc[mask]
+    if len(processed_prepared) == 0:
+        _log_event("run_no_new_data", last_timestamp=execution_state.last_timestamp)
+        empty = processed_prepared.copy()
+        for column in (
+            "position",
+            "returns",
+            "trend_signal",
+            "regime_signal",
+            "realized_vol",
+            "raw_target",
+            "sized_target",
+            "gross_return",
+            "turnover",
+            "fees",
+            "slippage",
+            "net_return",
+            "equity_curve",
+            "drawdown",
+            "kill_switch_triggered",
+        ):
+            empty[column] = pd.Series(dtype=float if column != "kill_switch_triggered" else bool)
+        return {
+            "metrics": {
+                "total_return": 0.0,
+                "final_equity": float(execution_state.equity),
+                "annual_return": 0.0,
+                "annual_volatility": 0.0,
+                "sharpe": 0.0,
+                "max_drawdown": float(execution_state.current_drawdown),
+                "win_rate": 0.0,
+                "trades": 0,
+                "average_turnover": 0.0,
+                "fee_drag": 0.0,
+                "slippage_drag": 0.0,
+                "average_abs_position": 0.0,
+                "periods_per_year": int(periods_per_year),
+                "annualization_source": freq.source,
+                "kill_switch_events": 0,
+                "regime_win_rate": 0.0,
+            },
+            "results": empty,
+        }
 
     prev_position = float(execution_state.last_position)
     equity = float(execution_state.equity)
@@ -204,8 +246,8 @@ def run_backtest(
     total_return = terminal_equity / starting_equity - 1.0 if starting_equity > 0 else 0.0
     avg = float(net_return.mean()) if len(net_return) > 0 else 0.0
     vol = float(net_return.std(ddof=0)) if len(net_return) > 0 else 0.0
-    if terminal_equity > 0:
-        annual_return = terminal_equity ** (periods_per_year / observed_periods) - 1.0
+    if 1.0 + total_return > 0:
+        annual_return = (1.0 + total_return) ** (periods_per_year / observed_periods) - 1.0
     else:
         annual_return = -1.0
     annual_vol = vol * np.sqrt(periods_per_year)

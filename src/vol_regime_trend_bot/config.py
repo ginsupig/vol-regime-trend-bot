@@ -94,6 +94,8 @@ class BacktestConfig:
             raise ValueError("min_abs_position must be >= 0")
         if self.min_abs_position > self.max_abs_position:
             raise ValueError("min_abs_position must be <= max_abs_position")
+        if self.min_abs_position > self.max_leverage:
+            raise ValueError("min_abs_position must be <= max_leverage")
         if self.max_position_change <= 0:
             raise ValueError("max_position_change must be > 0")
         if self.max_leverage <= 0:

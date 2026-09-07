@@ -95,12 +95,15 @@ def run_backtest(
     kill_switch_flags: list[bool] = []
 
     execution_state = load_execution_state(execution_state_path)
-    drawdown_state = DrawdownProtectionState()
+    drawdown_state = DrawdownProtectionState(
+        kill_active=execution_state.kill_active,
+        cooldown_remaining=execution_state.cooldown_remaining,
+    )
 
     prev_position = float(execution_state.last_position)
-    equity = 1.0
-    rolling_peak = 1.0
-    current_drawdown = 0.0
+    equity = float(execution_state.equity)
+    rolling_peak = float(execution_state.rolling_peak)
+    current_drawdown = float(execution_state.current_drawdown)
 
     for idx, target_position in rate_limited_target.items():
         protected_position, drawdown_state, kill_triggered = apply_drawdown_protection(
@@ -161,8 +164,13 @@ def run_backtest(
         prev_position = protected_position
 
     execution_state.last_position = prev_position
-    if len(prices.index) > 0 and isinstance(prepared.index, pd.DatetimeIndex):
-        execution_state.last_timestamp = str(prices.index[-1])
+    execution_state.equity = equity
+    execution_state.rolling_peak = rolling_peak
+    execution_state.current_drawdown = current_drawdown
+    execution_state.kill_active = drawdown_state.kill_active
+    execution_state.cooldown_remaining = drawdown_state.cooldown_remaining
+    if len(prepared.index) > 0 and isinstance(prepared.index, pd.DatetimeIndex):
+        execution_state.last_timestamp = str(prepared.index[-1])
     save_execution_state(execution_state_path, execution_state)
 
     position = pd.Series(position_values, index=prices.index, dtype=float)

@@ -38,7 +38,7 @@ class BacktestConfig:
     def from_json_file(cls, path: str | os.PathLike[str]) -> dict[str, Any]:
         cfg_path = Path(path)
         try:
-            payload = json.loads(cfg_path.read_text())
+            payload = json.loads(cfg_path.read_text(encoding="utf-8"))
         except OSError as exc:
             raise ValueError(f"unable to read config file: {cfg_path}") from exc
         except json.JSONDecodeError as exc:

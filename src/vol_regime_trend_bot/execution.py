@@ -35,6 +35,11 @@ class PaperExecutionAdapter:
 class ExecutionState:
     last_position: float = 0.0
     last_timestamp: str | None = None
+    equity: float = 1.0
+    rolling_peak: float = 1.0
+    current_drawdown: float = 0.0
+    kill_active: bool = False
+    cooldown_remaining: int = 0
     seen_intent_keys: set[str] = field(default_factory=set)
 
     def to_json(self) -> str:
@@ -48,6 +53,11 @@ class ExecutionState:
         return cls(
             last_position=float(payload.get("last_position", 0.0)),
             last_timestamp=payload.get("last_timestamp"),
+            equity=float(payload.get("equity", 1.0)),
+            rolling_peak=float(payload.get("rolling_peak", 1.0)),
+            current_drawdown=float(payload.get("current_drawdown", 0.0)),
+            kill_active=bool(payload.get("kill_active", False)),
+            cooldown_remaining=int(payload.get("cooldown_remaining", 0)),
             seen_intent_keys=set(payload.get("seen_intent_keys", [])),
         )
 
@@ -58,7 +68,7 @@ def load_execution_state(path: str | None) -> ExecutionState:
     state_path = Path(path)
     if not state_path.exists():
         return ExecutionState()
-    return ExecutionState.from_json(state_path.read_text())
+    return ExecutionState.from_json(state_path.read_text(encoding="utf-8"))
 
 
 def save_execution_state(path: str | None, state: ExecutionState) -> None:
@@ -66,7 +76,7 @@ def save_execution_state(path: str | None, state: ExecutionState) -> None:
         return
     state_path = Path(path)
     state_path.parent.mkdir(parents=True, exist_ok=True)
-    state_path.write_text(state.to_json())
+    state_path.write_text(state.to_json(), encoding="utf-8")
 
 
 def build_order_intent(

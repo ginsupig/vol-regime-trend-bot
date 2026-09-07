@@ -97,7 +97,7 @@ def run_backtest(
     execution_state = load_execution_state(execution_state_path)
     drawdown_state = DrawdownProtectionState()
 
-    prev_position = 0.0
+    prev_position = float(execution_state.last_position)
     equity = 1.0
     rolling_peak = 1.0
     current_drawdown = 0.0
@@ -126,7 +126,7 @@ def run_backtest(
             ts = str(idx)
             is_replay = False
             if execution_state.last_timestamp is not None and isinstance(prepared.index, pd.DatetimeIndex):
-                is_replay = pd.Timestamp(ts) < pd.Timestamp(execution_state.last_timestamp)
+                is_replay = pd.Timestamp(ts) <= pd.Timestamp(execution_state.last_timestamp)
             if not is_replay:
                 intent = build_order_intent(
                     symbol=symbol,

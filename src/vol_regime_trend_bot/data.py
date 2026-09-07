@@ -117,8 +117,9 @@ def infer_periods_per_year(
             if base in freq_map and step > 0:
                 scaled = max(int(round(freq_map[base] / step)), 1)
                 return FrequencyResolution(periods_per_year=scaled, source=f"inferred:{inferred}")
-    business_days = index.tz_localize(None).normalize().to_numpy(dtype="datetime64[D]")
-    if len(business_days) >= 2:
+    naive_index = index.tz_localize(None)
+    business_days = naive_index.normalize().to_numpy(dtype="datetime64[D]")
+    if len(business_days) >= 2 and (naive_index.day_of_week < 5).all():
         business_deltas = np.array(
             [
                 np.busday_count(business_days[i], business_days[i + 1])

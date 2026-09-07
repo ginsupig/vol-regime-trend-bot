@@ -90,10 +90,10 @@ def run_backtest(
         pnl = position * instrument_ret
 
         if prior_position != position:
-            if prior_position != 0.0 and active_trade_pnl > 0:
-                winning_trade_count += 1
-            if position != 0.0:
+            if prior_position != 0.0:
                 trade_count += 1
+                if active_trade_pnl > 0:
+                    winning_trade_count += 1
             active_trade_pnl = 0.0
 
         if position != 0.0:
@@ -104,8 +104,10 @@ def run_backtest(
         positions.append(position)
         prior_position = position
 
-    if prior_position != 0.0 and active_trade_pnl > 0:
-        winning_trade_count += 1
+    if prior_position != 0.0:
+        trade_count += 1
+        if active_trade_pnl > 0:
+            winning_trade_count += 1
 
     total_return = equity_curve[-1] - 1.0
     n = len(pnl_returns)

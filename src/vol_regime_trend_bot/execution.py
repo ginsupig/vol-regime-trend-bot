@@ -1,0 +1,115 @@
+from __future__ import annotations
+
+import hashlib
+import json
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+from typing import Protocol
+
+IDEMPOTENCY_KEY_HEX_LENGTH = 20
+
+
+@dataclass(frozen=True)
+class OrderIntent:
+    idempotency_key: str
+    symbol: str
+    side: str
+    quantity: float
+    timestamp: str
+    reason: str
+
+
+class ExecutionAdapter(Protocol):
+    def submit_order_intent(self, intent: OrderIntent) -> None: ...
+
+
+@dataclass
+class PaperExecutionAdapter:
+    submitted: list[OrderIntent] = field(default_factory=list)
+
+    def submit_order_intent(self, intent: OrderIntent) -> None:
+        self.submitted.append(intent)
+
+
+@dataclass
+class ExecutionState:
+    last_position: float = 0.0
+    last_timestamp: str | None = None
+    equity: float = 1.0
+    rolling_peak: float = 1.0
+    current_drawdown: float = 0.0
+    kill_active: bool = False
+    cooldown_remaining: int = 0
+    seen_intent_keys: set[str] = field(default_factory=set)
+
+    def to_json(self) -> str:
+        payload = asdict(self)
+        payload["seen_intent_keys"] = sorted(self.seen_intent_keys)
+        return json.dumps(payload, sort_keys=True)
+
+    @classmethod
+    def from_json(cls, raw: str) -> "ExecutionState":
+        payload = json.loads(raw)
+        return cls(
+            last_position=float(payload.get("last_position", 0.0)),
+            last_timestamp=payload.get("last_timestamp"),
+            equity=float(payload.get("equity", 1.0)),
+            rolling_peak=float(payload.get("rolling_peak", 1.0)),
+            current_drawdown=float(payload.get("current_drawdown", 0.0)),
+            kill_active=bool(payload.get("kill_active", False)),
+            cooldown_remaining=int(payload.get("cooldown_remaining", 0)),
+            seen_intent_keys=set(payload.get("seen_intent_keys", [])),
+        )
+
+
+def load_execution_state(path: str | None) -> ExecutionState:
+    if not path:
+        return ExecutionState()
+    state_path = Path(path)
+    if not state_path.exists():
+        return ExecutionState()
+    return ExecutionState.from_json(state_path.read_text(encoding="utf-8"))
+
+
+def save_execution_state(path: str | None, state: ExecutionState) -> None:
+    if not path:
+        return
+    state_path = Path(path)
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    state_path.write_text(state.to_json(), encoding="utf-8")
+
+
+def build_order_intent(
+    symbol: str,
+    timestamp: str,
+    target_position: float,
+    current_position: float,
+    reason: str,
+) -> OrderIntent | None:
+    delta = float(target_position) - float(current_position)
+    if abs(delta) < 1e-12:
+        return None
+    side = "buy" if delta > 0 else "sell"
+    quantity = abs(delta)
+    key_basis = f"{symbol}|{timestamp}|{round(target_position, 12)}|{round(current_position, 12)}|{reason}"
+    key = hashlib.sha256(key_basis.encode("utf-8")).hexdigest()[:IDEMPOTENCY_KEY_HEX_LENGTH]
+    return OrderIntent(
+        idempotency_key=key,
+        symbol=symbol,
+        side=side,
+        quantity=quantity,
+        timestamp=timestamp,
+        reason=reason,
+    )
+
+
+def submit_intent_idempotent(
+    adapter: ExecutionAdapter,
+    intent: OrderIntent,
+    state: ExecutionState,
+) -> bool:
+    if intent.idempotency_key in state.seen_intent_keys:
+        return False
+    adapter.submit_order_intent(intent)
+    state.seen_intent_keys.add(intent.idempotency_key)
+    return True

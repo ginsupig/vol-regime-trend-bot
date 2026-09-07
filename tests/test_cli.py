@@ -1,3 +1,5 @@
+import json
+
 import pandas as pd
 import pytest
 
@@ -11,8 +13,8 @@ def test_cli_passes_arguments_to_backtest(monkeypatch, capsys):
         captured["csv_path"] = path
         return pd.DataFrame({"adj_close": [100.0, 101.0, 102.0]})
 
-    def fake_run_backtest(data, config, price_column):
-        captured["price_column"] = price_column
+    def fake_run_backtest(data, config, **kwargs):
+        captured["kwargs"] = kwargs
         captured["config"] = config
         assert list(data.columns) == ["adj_close"]
         return {"metrics": {"total_return": 0.1}}
@@ -47,7 +49,7 @@ def test_cli_passes_arguments_to_backtest(monkeypatch, capsys):
     cli.main()
 
     assert captured["csv_path"] == "prices.csv"
-    assert captured["price_column"] == "adj_close"
+    assert captured["kwargs"]["price_column"] == "adj_close"
     assert captured["config"].trend_window == 10
     assert captured["config"].vol_window == 5
     assert captured["config"].max_volatility == pytest.approx(0.02)
@@ -56,8 +58,9 @@ def test_cli_passes_arguments_to_backtest(monkeypatch, capsys):
     assert captured["config"].fee_bps == pytest.approx(3.0)
     assert captured["config"].periods_per_year == 365
 
-    output = capsys.readouterr().out
-    assert '"total_return": 0.1' in output
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["total_return"] == 0.1
+    assert "config" in payload
 
 
 def test_cli_shows_clean_error_on_invalid_config(monkeypatch, capsys):
@@ -70,3 +73,33 @@ def test_cli_shows_clean_error_on_invalid_config(monkeypatch, capsys):
 
     assert exc.value.code == 2
     assert "invalid setup" in capsys.readouterr().err
+
+
+def test_cli_accepts_config_file_and_paper_mode(monkeypatch, tmp_path, capsys):
+    config_path = tmp_path / "config.json"
+    config_path.write_text('{"trend_window": 7, "vol_window": 3}')
+
+    monkeypatch.setattr(cli.pd, "read_csv", lambda _path: pd.DataFrame({"close": [100.0, 101.0, 102.0]}))
+    monkeypatch.setenv("VRTB_TREND_WINDOW", "9")
+    monkeypatch.setattr(
+        cli,
+        "run_backtest",
+        lambda *_args, **_kwargs: {"metrics": {"periods_per_year": 252, "annualization_source": "configured"}},
+    )
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "vol-regime-backtest",
+            "--csv",
+            "prices.csv",
+            "--config",
+            str(config_path),
+            "--paper",
+        ],
+    )
+
+    cli.main()
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["config"]["trend_window"] == 9
+    assert payload["paper_intents"] == []

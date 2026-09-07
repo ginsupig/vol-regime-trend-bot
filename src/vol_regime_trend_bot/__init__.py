@@ -2,5 +2,6 @@
 
 from .backtest import run_backtest
 from .config import BacktestConfig
+from .execution import PaperExecutionAdapter
 
-__all__ = ["BacktestConfig", "run_backtest"]
+__all__ = ["BacktestConfig", "PaperExecutionAdapter", "run_backtest"]

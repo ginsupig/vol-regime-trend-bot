@@ -34,6 +34,8 @@ def generate_signals(closes: list[float], config: StrategyConfig) -> list[int]:
     config.validate()
     if len(closes) < 2:
         return [0] * len(closes)
+    if any(close <= 0 for close in closes):
+        raise ValueError("close prices must be positive")
 
     returns: deque[float] = deque(maxlen=config.vol_window)
     vol_history: deque[float] = deque(maxlen=config.regime_window)
@@ -45,9 +47,6 @@ def generate_signals(closes: list[float], config: StrategyConfig) -> list[int]:
     for i in range(1, len(closes)):
         prev = closes[i - 1]
         curr = closes[i]
-        if prev <= 0 or curr <= 0:
-            raise ValueError("close prices must be positive")
-
         returns.append((curr / prev) - 1.0)
         trend_prices.append(curr)
 

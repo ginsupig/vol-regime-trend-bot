@@ -16,3 +16,8 @@ def test_generate_signals_identifies_low_vol_uptrend() -> None:
 def test_generate_signals_rejects_non_positive_close() -> None:
     with pytest.raises(ValueError, match="positive"):
         generate_signals([100.0, 0.0, 101.0], StrategyConfig(trend_window=2, vol_window=2, regime_window=2))
+
+
+def test_generate_signals_rejects_non_positive_first_close() -> None:
+    with pytest.raises(ValueError, match="positive"):
+        generate_signals([0.0, 100.0], StrategyConfig(trend_window=2, vol_window=2, regime_window=2))

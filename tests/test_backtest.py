@@ -70,3 +70,28 @@ def test_backtest_rejects_non_positive_periods_per_year(periods_per_year: int) -
             strategy_config=StrategyConfig(trend_window=2, vol_window=2, regime_window=2),
             periods_per_year=periods_per_year,
         )
+
+
+def test_backtest_rejects_non_positive_close_input() -> None:
+    with pytest.raises(ValueError, match="positive"):
+        run_backtest([0.0, 100.0], strategy_config=StrategyConfig(trend_window=2, vol_window=2, regime_window=2))
+
+
+def test_backtest_trade_accounting_on_direct_flip(monkeypatch) -> None:
+    closes = [100.0, 100.0, 90.0, 81.0]
+
+    def fake_signals(_: list[float], __: StrategyConfig) -> list[int]:
+        return [0, 1, -1, 0]
+
+    monkeypatch.setattr("vol_regime_trend_bot.backtest.generate_signals", fake_signals)
+    result = run_backtest(
+        closes,
+        strategy_config=StrategyConfig(trend_window=2, vol_window=2, regime_window=2),
+        risk_budget=1.0,
+        max_leverage=1.0,
+        max_gross_exposure=1.0,
+        vol_lookback=2,
+    )
+
+    assert result.trades == 2
+    assert result.win_rate == 0.5

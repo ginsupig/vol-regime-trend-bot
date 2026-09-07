@@ -55,6 +55,8 @@ def run_backtest(
         strategy_config = StrategyConfig()
     if len(closes) < 2:
         raise ValueError("Need at least 2 close prices")
+    if any(close <= 0 for close in closes):
+        raise ValueError("close prices must be positive")
     if vol_lookback < 2:
         raise ValueError("vol_lookback must be >= 2")
     if periods_per_year <= 0:
@@ -74,9 +76,6 @@ def run_backtest(
     for i in range(1, len(closes)):
         prev = closes[i - 1]
         curr = closes[i]
-        if prev <= 0 or curr <= 0:
-            raise ValueError("close prices must be positive")
-
         instrument_ret = (curr / prev) - 1.0
         rolling_returns.append(instrument_ret)
 

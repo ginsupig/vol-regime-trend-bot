@@ -38,6 +38,7 @@ def main() -> None:
             fee_bps=args.fee_bps,
             periods_per_year=args.periods_per_year,
         )
+        cfg.validate()
 
         data = pd.read_csv(args.csv)
         output = run_backtest(data, cfg, price_column=args.price_column)

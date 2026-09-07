@@ -15,8 +15,13 @@ def compute_realized_volatility(prices: pd.Series, window: int) -> pd.Series:
     return returns.rolling(window, min_periods=window).std(ddof=0)
 
 
-def compute_volatility_regime_signal(prices: pd.Series, window: int, max_volatility: float) -> pd.Series:
-    realized_vol = compute_realized_volatility(prices, window)
+def compute_volatility_regime_signal(
+    prices: pd.Series,
+    window: int,
+    max_volatility: float,
+    realized_vol: pd.Series | None = None,
+) -> pd.Series:
+    realized_vol = realized_vol if realized_vol is not None else compute_realized_volatility(prices, window)
     return (realized_vol <= max_volatility).fillna(False)
 
 
@@ -27,7 +32,12 @@ def compose_signal(trend_signal: pd.Series, regime_signal: pd.Series) -> pd.Seri
 def build_signal_pipeline(prices: pd.Series, config: BacktestConfig) -> pd.DataFrame:
     trend_signal = compute_trend_signal(prices, config.trend_window)
     realized_vol = compute_realized_volatility(prices, config.vol_window)
-    regime_signal = (realized_vol <= config.max_volatility).fillna(False)
+    regime_signal = compute_volatility_regime_signal(
+        prices,
+        window=config.vol_window,
+        max_volatility=config.max_volatility,
+        realized_vol=realized_vol,
+    )
     raw_signal = compose_signal(trend_signal, regime_signal)
     return pd.DataFrame(
         {

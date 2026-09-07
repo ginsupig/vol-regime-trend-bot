@@ -35,7 +35,7 @@ class BacktestConfig:
         return cls(**payload)
 
     @classmethod
-    def from_json_file(cls, path: str | os.PathLike[str]) -> "BacktestConfig":
+    def from_json_file(cls, path: str | os.PathLike[str]) -> dict[str, Any]:
         cfg_path = Path(path)
         try:
             payload = json.loads(cfg_path.read_text())
@@ -47,10 +47,10 @@ class BacktestConfig:
             raise ValueError("config file must contain a JSON object")
         config = cls.from_dict(payload)
         config.validate()
-        return config
+        return payload
 
     @classmethod
-    def from_env(cls, prefix: str = "VRTB_") -> "BacktestConfig":
+    def from_env(cls, prefix: str = "VRTB_") -> dict[str, Any]:
         type_map: dict[type, Any] = {
             int: int,
             float: float,
@@ -72,13 +72,11 @@ class BacktestConfig:
                 raise ValueError(f"invalid value for {env_key}: {raw}") from exc
         config = cls.from_dict(parsed)
         config.validate()
-        return config
+        return parsed
 
-    def merge(self, override: "BacktestConfig") -> "BacktestConfig":
+    def apply_overrides(self, override: dict[str, Any]) -> "BacktestConfig":
         base = asdict(self)
-        for key, value in asdict(override).items():
-            if value != BacktestConfig().__dict__[key]:
-                base[key] = value
+        base.update(override)
         merged = BacktestConfig.from_dict(base)
         merged.validate()
         return merged

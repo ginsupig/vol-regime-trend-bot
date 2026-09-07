@@ -56,7 +56,7 @@ def parse_args() -> argparse.Namespace:
     return build_parser().parse_args()
 
 
-def _build_cli_config(args: argparse.Namespace) -> BacktestConfig:
+def _build_cli_config(args: argparse.Namespace) -> dict[str, float | int | str]:
     raw = {
         "trend_window": args.trend_window,
         "vol_window": args.vol_window,
@@ -75,7 +75,7 @@ def _build_cli_config(args: argparse.Namespace) -> BacktestConfig:
         "cooldown_bars": args.cooldown_bars,
         "seed": args.seed,
     }
-    return BacktestConfig.from_dict({k: v for k, v in raw.items() if v is not None})
+    return {k: v for k, v in raw.items() if v is not None}
 
 
 def main() -> None:
@@ -85,10 +85,12 @@ def main() -> None:
     try:
         logging.basicConfig(level=getattr(logging, args.log_level))
 
-        file_config = BacktestConfig.from_json_file(args.config) if args.config else BacktestConfig()
-        env_config = BacktestConfig.from_env()
-        cli_config = _build_cli_config(args)
-        cfg = file_config.merge(env_config).merge(cli_config)
+        file_overrides = BacktestConfig.from_json_file(args.config) if args.config else {}
+        env_overrides = BacktestConfig.from_env()
+        cli_overrides = _build_cli_config(args)
+        cfg = BacktestConfig().apply_overrides(file_overrides).apply_overrides(env_overrides).apply_overrides(
+            cli_overrides
+        )
         cfg.validate()
 
         data = pd.read_csv(args.csv)

@@ -42,9 +42,13 @@ def run_backtest(
 
     periods_per_year = 252
     observed_periods = max(len(net_return) - 1, 1)
-    total_return = float(equity_curve.iloc[-1] - 1.0)
+    terminal_equity = float(equity_curve.iloc[-1])
+    total_return = terminal_equity - 1.0
     vol = float(net_return.std(ddof=0))
-    annual_return = (1.0 + total_return) ** (periods_per_year / observed_periods) - 1.0
+    if terminal_equity > 0:
+        annual_return = terminal_equity ** (periods_per_year / observed_periods) - 1.0
+    else:
+        annual_return = -1.0
     annual_vol = vol * np.sqrt(periods_per_year)
     sharpe = annual_return / annual_vol if annual_vol > 0 else 0.0
 

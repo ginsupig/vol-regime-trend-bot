@@ -11,7 +11,7 @@ def generate_target_positions(prices: pd.Series, config: BacktestConfig) -> pd.S
     prices = prices.astype(float)
     returns = prices.pct_change()
     trend = prices.rolling(config.trend_window, min_periods=config.trend_window).mean()
-    realized_vol = returns.rolling(config.vol_window, min_periods=config.vol_window).std()
+    realized_vol = returns.rolling(config.vol_window, min_periods=config.vol_window).std(ddof=0)
 
     trend_ok = prices > trend
     regime_ok = realized_vol <= config.max_volatility

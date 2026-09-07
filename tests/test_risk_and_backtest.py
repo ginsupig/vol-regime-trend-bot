@@ -25,6 +25,25 @@ def test_run_backtest_returns_metrics_and_result_columns():
     assert out["metrics"]["max_drawdown"] <= 0
 
 
+def test_run_backtest_metrics_are_consistent_with_results():
+    data = pd.DataFrame({"close": [100, 101, 102, 101, 103, 104, 103, 105]})
+    cfg = BacktestConfig(trend_window=2, vol_window=2, max_volatility=0.2, fee_bps=0.0)
+
+    out = run_backtest(data, cfg)
+    results = out["results"]
+    metrics = out["metrics"]
+
+    observed_periods = max(len(results["net_return"]) - 1, 1)
+    expected_annual = (1.0 + metrics["total_return"]) ** (252 / observed_periods) - 1.0
+    assert metrics["annual_return"] == pytest.approx(expected_annual)
+
+    active = (results["position"].shift(1).fillna(0.0) != 0.0) | (
+        (results["position"] - results["position"].shift(1).fillna(0.0)).abs() > 0.0
+    )
+    expected_win_rate = float((results.loc[active, "net_return"] > 0).mean())
+    assert metrics["win_rate"] == pytest.approx(expected_win_rate)
+
+
 def test_run_backtest_validates_missing_price_column():
     data = pd.DataFrame({"open": [1, 2, 3]})
     cfg = BacktestConfig(trend_window=2, vol_window=2)

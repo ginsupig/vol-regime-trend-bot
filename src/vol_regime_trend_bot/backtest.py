@@ -41,22 +41,28 @@ def run_backtest(
     equity_curve = (1.0 + net_return).cumprod()
 
     periods_per_year = 252
-    avg = float(net_return.mean())
+    observed_periods = max(len(net_return) - 1, 1)
+    total_return = float(equity_curve.iloc[-1] - 1.0)
     vol = float(net_return.std(ddof=0))
-    annual_return = (1.0 + avg) ** periods_per_year - 1.0
+    annual_return = (1.0 + total_return) ** (periods_per_year / observed_periods) - 1.0
     annual_vol = vol * np.sqrt(periods_per_year)
     sharpe = annual_return / annual_vol if annual_vol > 0 else 0.0
 
     rolling_peak = equity_curve.cummax()
     drawdown = equity_curve / rolling_peak - 1.0
+    active_periods = (shifted_position != 0.0) | (turnover > 0.0)
+    if bool(active_periods.any()):
+        win_rate = float((net_return[active_periods] > 0).mean())
+    else:
+        win_rate = 0.0
 
     metrics = {
-        "total_return": float(equity_curve.iloc[-1] - 1.0),
+        "total_return": total_return,
         "annual_return": float(annual_return),
         "annual_volatility": float(annual_vol),
         "sharpe": float(sharpe),
         "max_drawdown": float(drawdown.min()),
-        "win_rate": float((net_return > 0).mean()),
+        "win_rate": win_rate,
         "trades": int((turnover > 0).sum()),
     }
 

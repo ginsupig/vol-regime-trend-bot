@@ -1,16 +1,20 @@
 # vol-regime-trend-bot
+Trading bot implementing volatility regime + trend filter strategy with backtesting and tests
 
-Trading bot implementing volatility regime + trend filter strategy with backtesting and tests.
-
-## Quick start
-
-```bash
-python -m pip install -e .
-pytest
-```
-
-Run a backtest from CSV (requires `close` column):
+## Quickstart
 
 ```bash
-vol-regime-backtest /path/to/prices.csv --trend-window 50 --vol-window 20 --regime-window 100
+pip install -e .
+vol-regime-backtest --csv /path/to/prices.csv
 ```
+
+CSV input must include a `close` column by default (or pass `--price-column`).
+Use `--periods-per-year` to match your data frequency (default `252` for daily bars).
+
+## What is implemented
+
+- Volatility regime + trend-filter signal generation
+- Position exposure controls (max absolute position and max position change per step)
+- Backtest engine with fees, equity curve, and core performance metrics
+- CLI entrypoint: `vol-regime-backtest`
+- Pytest coverage for strategy, risk controls, and backtest validation

@@ -1,54 +1,72 @@
-import json
-import sys
-from pathlib import Path
-
+import pandas as pd
 import pytest
 
-from vol_regime_trend_bot.cli import main
+from vol_regime_trend_bot import cli
 
 
-def test_cli_runs_and_prints_metrics(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
-    csv_path = tmp_path / "prices.csv"
-    rows = [f"2026-01-{day:02d},{100 + day}" for day in range(1, 61)]
-    csv_path.write_text("timestamp,close\n" + "\n".join(rows) + "\n", encoding="utf-8")
+def test_cli_passes_arguments_to_backtest(monkeypatch, capsys):
+    captured = {}
 
+    def fake_read_csv(path):
+        captured["csv_path"] = path
+        return pd.DataFrame({"adj_close": [100.0, 101.0, 102.0]})
+
+    def fake_run_backtest(data, config, price_column):
+        captured["price_column"] = price_column
+        captured["config"] = config
+        assert list(data.columns) == ["adj_close"]
+        return {"metrics": {"total_return": 0.1}}
+
+    monkeypatch.setattr(cli.pd, "read_csv", fake_read_csv)
+    monkeypatch.setattr(cli, "run_backtest", fake_run_backtest)
     monkeypatch.setattr(
-        sys,
-        "argv",
+        "sys.argv",
         [
             "vol-regime-backtest",
-            str(csv_path),
+            "--csv",
+            "prices.csv",
+            "--price-column",
+            "adj_close",
             "--trend-window",
-            "20",
-            "--vol-window",
             "10",
-            "--regime-window",
-            "30",
-            "--risk-budget",
-            "0.1",
+            "--vol-window",
+            "5",
+            "--max-volatility",
+            "0.02",
+            "--max-abs-position",
+            "0.8",
+            "--max-position-change",
+            "0.2",
+            "--fee-bps",
+            "3",
+            "--periods-per-year",
+            "365",
         ],
     )
 
-    main()
-    payload = json.loads(capsys.readouterr().out)
+    cli.main()
 
-    assert "total_return" in payload
-    assert "trades" in payload
+    assert captured["csv_path"] == "prices.csv"
+    assert captured["price_column"] == "adj_close"
+    assert captured["config"].trend_window == 10
+    assert captured["config"].vol_window == 5
+    assert captured["config"].max_volatility == pytest.approx(0.02)
+    assert captured["config"].max_abs_position == pytest.approx(0.8)
+    assert captured["config"].max_position_change == pytest.approx(0.2)
+    assert captured["config"].fee_bps == pytest.approx(3.0)
+    assert captured["config"].periods_per_year == 365
 
-
-def test_cli_rejects_invalid_strategy_window(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    csv_path = tmp_path / "prices.csv"
-    csv_path.write_text("close\n100\n101\n", encoding="utf-8")
-
-    monkeypatch.setattr(sys, "argv", ["vol-regime-backtest", str(csv_path), "--trend-window", "1"])
-
-    with pytest.raises(SystemExit) as exc_info:
-        main()
-    assert exc_info.value.code == 2
+    output = capsys.readouterr().out
+    assert '"total_return": 0.1' in output
 
 
-def test_cli_rejects_missing_csv_path(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(sys, "argv", ["vol-regime-backtest", "/tmp/does-not-exist.csv"])
-    with pytest.raises(SystemExit) as exc_info:
-        main()
-    assert exc_info.value.code == 2
+def test_cli_shows_clean_error_on_invalid_config(monkeypatch, capsys):
+    monkeypatch.setattr(cli.pd, "read_csv", lambda _path: pd.DataFrame({"close": [100.0, 101.0]}))
+    monkeypatch.setattr(cli, "run_backtest", lambda *_args, **_kwargs: (_ for _ in ()).throw(ValueError("invalid setup")))
+    monkeypatch.setattr("sys.argv", ["vol-regime-backtest", "--csv", "prices.csv"])
+
+    with pytest.raises(SystemExit) as exc:
+        cli.main()
+
+    assert exc.value.code == 2
+    assert "invalid setup" in capsys.readouterr().err

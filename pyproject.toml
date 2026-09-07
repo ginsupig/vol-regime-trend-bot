@@ -5,16 +5,22 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "vol-regime-trend-bot"
 version = "0.1.0"
-description = "Volatility regime + trend filter strategy bot with backtesting"
+description = "Volatility regime + trend filter backtesting bot"
 readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "MIT"}
-authors = [{name = "ginsupig"}]
-dependencies = []
+dependencies = [
+  "pandas>=2.0",
+  "numpy>=1.24",
+]
 
 [project.scripts]
 vol-regime-backtest = "vol_regime_trend_bot.cli:main"
 
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [tool.pytest.ini_options]
-addopts = "-q"
 testpaths = ["tests"]

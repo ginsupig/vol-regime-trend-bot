@@ -22,6 +22,21 @@ def test_scale_positions_applies_exposure_and_turnover_limits():
     assert all(abs(b - a) <= 0.2000001 for a, b in zip(positions[:-1], positions[1:]))
 
 
+def test_scale_positions_uses_prior_returns_only_for_sizing():
+    positions = scale_positions_with_risk(
+        raw_signals=[1.0, 1.0],
+        returns=[0.0, 1.0],
+        vol_window=2,
+        periods_per_year=252,
+        target_vol=0.1,
+        max_exposure=1.0,
+        max_position_change=1.0,
+        min_vol_floor=1e-6,
+    )
+
+    assert positions == [1.0, 1.0]
+
+
 def test_backtest_respects_periods_per_year_annualization():
     prices = [100, 101, 102, 103, 104, 105]
     strategy_config = StrategyConfig(vol_window=2, trend_window=2, vol_threshold=1.0)
@@ -45,7 +60,7 @@ def test_backtest_respects_periods_per_year_annualization():
     assert not math.isclose(result_252.annual_return, result_12.annual_return)
 
 
-def test_backtest_uses_one_period_execution_lag():
+def test_backtest_applies_prior_information_before_large_move():
     prices = [100, 100, 50]
     result = run_backtest(
         prices,

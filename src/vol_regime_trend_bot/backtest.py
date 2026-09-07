@@ -26,7 +26,7 @@ def _compute_returns(prices: list[float]) -> list[float]:
         raise ValueError("Need at least 2 price points")
     if any(price <= 0 for price in prices):
         raise ValueError("Prices must be positive")
-    returns = [0.0]
+    returns: list[float] = []
     for prev, current in zip(prices[:-1], prices[1:]):
         returns.append((current / prev) - 1.0)
     return returns
@@ -65,7 +65,7 @@ def run_backtest(
         turnover = abs(position - prev_position)
         if turnover > 1e-12:
             trades += 1
-        pnl.append((prev_position * period_return) - (turnover * fee_rate))
+        pnl.append((position * period_return) - (turnover * fee_rate))
         prev_position = position
 
     equity = [1.0]

@@ -23,13 +23,17 @@ def _rolling_pstd(values: list[float], end_idx: int, window: int) -> float:
 def generate_raw_signals(prices: list[float], returns: list[float], config: StrategyConfig) -> list[float]:
     if len(prices) < 2:
         raise ValueError("Need at least 2 prices to generate signals")
-    if len(returns) != len(prices):
-        raise ValueError("returns length must match prices length")
+    if len(returns) != len(prices) - 1:
+        raise ValueError("returns length must equal prices length minus one")
 
     signals: list[float] = []
-    for i, price in enumerate(prices):
+    for i in range(len(returns)):
+        price = prices[i]
         trend = 1.0 if price >= _rolling_mean(prices, i, config.trend_window) else 0.0
-        realized_vol = _rolling_pstd(returns, i, config.vol_window)
+        if i == 0:
+            realized_vol = 0.0
+        else:
+            realized_vol = _rolling_pstd(returns, i - 1, config.vol_window)
         regime = 1.0 if realized_vol <= config.vol_threshold else 0.0
         signals.append(1.0 if trend > 0 and regime > 0 else 0.0)
     return signals
@@ -56,8 +60,8 @@ def scale_positions_with_risk(
     positions: list[float] = []
     prev = 0.0
     for i, signal in enumerate(raw_signals):
-        start = max(0, i - vol_window + 1)
-        vol_sample = returns[start : i + 1]
+        start = max(0, i - vol_window)
+        vol_sample = returns[start:i]
         realized_vol = statistics.pstdev(vol_sample) * annualizer if len(vol_sample) > 1 else 0.0
         vol_denom = max(realized_vol, min_vol_floor)
         desired = signal * min(max_exposure, target_vol / vol_denom)

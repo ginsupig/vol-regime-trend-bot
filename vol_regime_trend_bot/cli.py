@@ -21,19 +21,23 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
-    args = build_parser().parse_args()
-    closes = load_closes_from_csv(args.csv)
-    result = run_backtest(
-        closes,
-        strategy_config=StrategyConfig(
-            trend_window=args.trend_window,
-            vol_window=args.vol_window,
-            regime_window=args.regime_window,
-        ),
-        risk_budget=args.risk_budget,
-        max_leverage=args.max_leverage,
-        max_gross_exposure=args.max_gross_exposure,
-    )
+    parser = build_parser()
+    args = parser.parse_args()
+    try:
+        closes = load_closes_from_csv(args.csv)
+        result = run_backtest(
+            closes,
+            strategy_config=StrategyConfig(
+                trend_window=args.trend_window,
+                vol_window=args.vol_window,
+                regime_window=args.regime_window,
+            ),
+            risk_budget=args.risk_budget,
+            max_leverage=args.max_leverage,
+            max_gross_exposure=args.max_gross_exposure,
+        )
+    except (FileNotFoundError, ValueError) as exc:
+        parser.error(str(exc))
     print(
         json.dumps(
             {

@@ -42,5 +42,6 @@ def test_cli_rejects_invalid_strategy_window(tmp_path: Path, monkeypatch: pytest
 
     monkeypatch.setattr(sys, "argv", ["vol-regime-backtest", str(csv_path), "--trend-window", "1"])
 
-    with pytest.raises(ValueError, match="trend_window"):
+    with pytest.raises(SystemExit) as exc_info:
         main()
+    assert exc_info.value.code == 2

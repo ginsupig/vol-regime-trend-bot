@@ -1,5 +1,6 @@
 from vol_regime_trend_bot.backtest import run_backtest
 from vol_regime_trend_bot.strategy import StrategyConfig
+import pytest
 
 
 def test_backtest_returns_coherent_metrics() -> None:
@@ -58,3 +59,14 @@ def test_backtest_handles_non_positive_ending_equity_annualization(monkeypatch) 
 
     assert result.total_return < -1.0
     assert result.annualized_return == -1.0
+
+
+@pytest.mark.parametrize("periods_per_year", [0, -252])
+def test_backtest_rejects_non_positive_periods_per_year(periods_per_year: int) -> None:
+    closes = [100.0, 101.0, 102.0]
+    with pytest.raises(ValueError, match="periods_per_year"):
+        run_backtest(
+            closes,
+            strategy_config=StrategyConfig(trend_window=2, vol_window=2, regime_window=2),
+            periods_per_year=periods_per_year,
+        )

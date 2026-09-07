@@ -57,6 +57,8 @@ def run_backtest(
         raise ValueError("Need at least 2 close prices")
     if vol_lookback < 2:
         raise ValueError("vol_lookback must be >= 2")
+    if periods_per_year <= 0:
+        raise ValueError("periods_per_year must be > 0")
 
     signals = generate_signals(closes, strategy_config)
     equity_curve = [1.0]

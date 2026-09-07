@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 
 import numpy as np
 import pandas as pd
@@ -108,6 +109,27 @@ def infer_periods_per_year(
     }
     if inferred in freq_map:
         return FrequencyResolution(periods_per_year=freq_map[inferred], source=f"inferred:{inferred}")
+    if inferred:
+        match = re.fullmatch(r"(\d+)([A-Za-z]+)", inferred)
+        if match:
+            step = int(match.group(1))
+            base = match.group(2)
+            if base in freq_map and step > 0:
+                scaled = max(int(round(freq_map[base] / step)), 1)
+                return FrequencyResolution(periods_per_year=scaled, source=f"inferred:{inferred}")
+    business_days = index.tz_localize(None).normalize().to_numpy(dtype="datetime64[D]")
+    if len(business_days) >= 2:
+        business_deltas = np.array(
+            [
+                np.busday_count(business_days[i], business_days[i + 1])
+                for i in range(len(business_days) - 1)
+            ],
+            dtype=int,
+        )
+        if (business_deltas > 0).all() and len(np.unique(business_deltas)) == 1:
+            step = int(business_deltas[0])
+            scaled = max(int(round(252 / step)), 1)
+            return FrequencyResolution(periods_per_year=scaled, source=f"inferred:{step}B")
 
     deltas = np.diff(index.view("int64"))
     if len(deltas) == 0:

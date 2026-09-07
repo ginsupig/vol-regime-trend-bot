@@ -80,6 +80,7 @@ def test_cli_accepts_config_file_and_paper_mode(monkeypatch, tmp_path, capsys):
     config_path.write_text('{"trend_window": 7, "vol_window": 3}')
 
     monkeypatch.setattr(cli.pd, "read_csv", lambda _path: pd.DataFrame({"close": [100.0, 101.0, 102.0]}))
+    monkeypatch.setenv("VRTB_TREND_WINDOW", "9")
     monkeypatch.setattr(
         cli,
         "run_backtest",
@@ -100,5 +101,5 @@ def test_cli_accepts_config_file_and_paper_mode(monkeypatch, tmp_path, capsys):
     cli.main()
 
     payload = json.loads(capsys.readouterr().out)
-    assert payload["config"]["trend_window"] == 7
+    assert payload["config"]["trend_window"] == 9
     assert payload["paper_intents"] == []

@@ -117,6 +117,20 @@ def test_frequency_inference_uses_datetime_index_when_regular():
     assert out["metrics"]["annualization_source"].startswith("inferred")
 
 
+def test_frequency_inference_handles_multiplier_offsets():
+    data = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2024-01-01", periods=10, freq="2B"),
+            "close": [100 + i for i in range(10)],
+        }
+    )
+    cfg = BacktestConfig(trend_window=2, vol_window=2, periods_per_year=999)
+
+    out = run_backtest(data, cfg, timestamp_column="timestamp")
+    assert out["metrics"]["periods_per_year"] == 126
+    assert out["metrics"]["annualization_source"] == "inferred:2B"
+
+
 def test_irregular_timestamps_fail_or_fallback():
     ts = pd.to_datetime([
         "2024-01-01",

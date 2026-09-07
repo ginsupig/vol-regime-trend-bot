@@ -6,6 +6,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Protocol
 
+IDEMPOTENCY_KEY_HEX_LENGTH = 20
+
 
 @dataclass(frozen=True)
 class OrderIntent:
@@ -80,7 +82,7 @@ def build_order_intent(
     side = "buy" if delta > 0 else "sell"
     quantity = abs(delta)
     key_basis = f"{symbol}|{timestamp}|{round(target_position, 12)}|{round(current_position, 12)}|{reason}"
-    key = hashlib.sha256(key_basis.encode("utf-8")).hexdigest()[:20]
+    key = hashlib.sha256(key_basis.encode("utf-8")).hexdigest()[:IDEMPOTENCY_KEY_HEX_LENGTH]
     return OrderIntent(
         idempotency_key=key,
         symbol=symbol,

@@ -23,27 +23,27 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--timestamp-column", default=None, help="Timestamp column to parse as UTC")
     parser.add_argument("--volume-column", default="volume", help="Volume column for validation")
 
-    parser.add_argument("--trend-window", type=int, default=50)
-    parser.add_argument("--vol-window", type=int, default=20)
-    parser.add_argument("--max-volatility", type=float, default=0.03)
-    parser.add_argument("--max-abs-position", type=float, default=1.0)
-    parser.add_argument("--min-abs-position", type=float, default=0.0)
-    parser.add_argument("--max-position-change", type=float, default=0.25)
-    parser.add_argument("--max-leverage", type=float, default=1.0)
-    parser.add_argument("--target-annual-volatility", type=float, default=0.15)
-    parser.add_argument("--fee-bps", type=float, default=2.0)
-    parser.add_argument("--slippage-bps", type=float, default=0.0)
-    parser.add_argument("--periods-per-year", type=int, default=252)
+    parser.add_argument("--trend-window", type=int, default=None)
+    parser.add_argument("--vol-window", type=int, default=None)
+    parser.add_argument("--max-volatility", type=float, default=None)
+    parser.add_argument("--max-abs-position", type=float, default=None)
+    parser.add_argument("--min-abs-position", type=float, default=None)
+    parser.add_argument("--max-position-change", type=float, default=None)
+    parser.add_argument("--max-leverage", type=float, default=None)
+    parser.add_argument("--target-annual-volatility", type=float, default=None)
+    parser.add_argument("--fee-bps", type=float, default=None)
+    parser.add_argument("--slippage-bps", type=float, default=None)
+    parser.add_argument("--periods-per-year", type=int, default=None)
     parser.add_argument(
         "--irregular-timestamp-policy",
         choices=["error", "fallback"],
-        default="error",
+        default=None,
         help="How to handle irregular timestamp spacing",
     )
-    parser.add_argument("--drawdown-kill-switch", type=float, default=-0.2)
-    parser.add_argument("--drawdown-reentry", type=float, default=-0.1)
-    parser.add_argument("--cooldown-bars", type=int, default=5)
-    parser.add_argument("--seed", type=int, default=7)
+    parser.add_argument("--drawdown-kill-switch", type=float, default=None)
+    parser.add_argument("--drawdown-reentry", type=float, default=None)
+    parser.add_argument("--cooldown-bars", type=int, default=None)
+    parser.add_argument("--seed", type=int, default=None)
 
     parser.add_argument("--paper", action="store_true", help="Generate idempotent paper order intents")
     parser.add_argument("--state-path", default=None, help="State checkpoint path for paper/backtest resumability")
@@ -57,24 +57,25 @@ def parse_args() -> argparse.Namespace:
 
 
 def _build_cli_config(args: argparse.Namespace) -> BacktestConfig:
-    return BacktestConfig(
-        trend_window=args.trend_window,
-        vol_window=args.vol_window,
-        max_volatility=args.max_volatility,
-        max_abs_position=args.max_abs_position,
-        min_abs_position=args.min_abs_position,
-        max_position_change=args.max_position_change,
-        max_leverage=args.max_leverage,
-        target_annual_volatility=args.target_annual_volatility,
-        fee_bps=args.fee_bps,
-        slippage_bps=args.slippage_bps,
-        periods_per_year=args.periods_per_year,
-        irregular_timestamp_policy=args.irregular_timestamp_policy,
-        drawdown_kill_switch=args.drawdown_kill_switch,
-        drawdown_reentry=args.drawdown_reentry,
-        cooldown_bars=args.cooldown_bars,
-        seed=args.seed,
-    )
+    raw = {
+        "trend_window": args.trend_window,
+        "vol_window": args.vol_window,
+        "max_volatility": args.max_volatility,
+        "max_abs_position": args.max_abs_position,
+        "min_abs_position": args.min_abs_position,
+        "max_position_change": args.max_position_change,
+        "max_leverage": args.max_leverage,
+        "target_annual_volatility": args.target_annual_volatility,
+        "fee_bps": args.fee_bps,
+        "slippage_bps": args.slippage_bps,
+        "periods_per_year": args.periods_per_year,
+        "irregular_timestamp_policy": args.irregular_timestamp_policy,
+        "drawdown_kill_switch": args.drawdown_kill_switch,
+        "drawdown_reentry": args.drawdown_reentry,
+        "cooldown_bars": args.cooldown_bars,
+        "seed": args.seed,
+    }
+    return BacktestConfig.from_dict({k: v for k, v in raw.items() if v is not None})
 
 
 def main() -> None:

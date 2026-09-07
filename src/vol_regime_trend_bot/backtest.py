@@ -97,7 +97,7 @@ def run_backtest(
     execution_state = load_execution_state(execution_state_path)
     drawdown_state = DrawdownProtectionState()
 
-    prev_position = float(execution_state.last_position)
+    prev_position = 0.0
     equity = 1.0
     rolling_peak = 1.0
     current_drawdown = 0.0

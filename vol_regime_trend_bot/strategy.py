@@ -61,7 +61,7 @@ def generate_signals(closes: list[float], config: StrategyConfig) -> list[int]:
             signals.append(0)
             continue
 
-        low_vol_regime = current_vol <= median([*vol_history, current_vol])
+        low_vol_regime = current_vol <= median(vol_history)
         vol_history.append(current_vol)
         trend_ma = sum(trend_prices) / len(trend_prices)
 

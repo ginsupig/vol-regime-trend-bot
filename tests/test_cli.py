@@ -45,3 +45,10 @@ def test_cli_rejects_invalid_strategy_window(tmp_path: Path, monkeypatch: pytest
     with pytest.raises(SystemExit) as exc_info:
         main()
     assert exc_info.value.code == 2
+
+
+def test_cli_rejects_missing_csv_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(sys, "argv", ["vol-regime-backtest", "/tmp/does-not-exist.csv"])
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+    assert exc_info.value.code == 2

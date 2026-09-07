@@ -1,4 +1,5 @@
 from vol_regime_trend_bot.strategy import StrategyConfig, generate_signals
+import pytest
 
 
 def test_generate_signals_identifies_low_vol_uptrend() -> None:
@@ -10,3 +11,8 @@ def test_generate_signals_identifies_low_vol_uptrend() -> None:
     assert len(signals) == len(closes)
     assert all(sig in (-1, 0, 1) for sig in signals)
     assert signals[-1] == 1
+
+
+def test_generate_signals_rejects_non_positive_close() -> None:
+    with pytest.raises(ValueError, match="positive"):
+        generate_signals([100.0, 0.0, 101.0], StrategyConfig(trend_window=2, vol_window=2, regime_window=2))

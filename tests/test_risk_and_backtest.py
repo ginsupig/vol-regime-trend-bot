@@ -9,6 +9,7 @@ def test_scale_positions_applies_exposure_and_turnover_limits():
     positions = scale_positions_with_risk(
         raw_signals=[1.0, 1.0, 1.0, 1.0],
         returns=[0.0, 0.01, -0.02, 0.01],
+        vol_window=3,
         periods_per_year=252,
         target_vol=0.50,
         max_exposure=0.60,
@@ -42,3 +43,14 @@ def test_backtest_respects_periods_per_year_annualization():
     assert result_12.periods_per_year == 12
     assert not math.isclose(result_252.annual_return, result_12.annual_return)
 
+
+def test_backtest_uses_one_period_execution_lag():
+    prices = [100, 100, 50]
+    result = run_backtest(
+        prices,
+        strategy_config=StrategyConfig(vol_window=2, trend_window=2, vol_threshold=1.0),
+        risk_config=RiskConfig(target_vol=1.0, max_exposure=1.0, max_position_change=1.0),
+        backtest_config=BacktestConfig(periods_per_year=252, fee_bps=0.0),
+    )
+
+    assert math.isclose(result.total_return, -0.5, rel_tol=1e-9, abs_tol=1e-9)

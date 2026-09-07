@@ -38,6 +38,7 @@ def generate_raw_signals(prices: list[float], returns: list[float], config: Stra
 def scale_positions_with_risk(
     raw_signals: list[float],
     returns: list[float],
+    vol_window: int,
     periods_per_year: int,
     target_vol: float,
     max_exposure: float,
@@ -46,6 +47,8 @@ def scale_positions_with_risk(
 ) -> list[float]:
     if len(raw_signals) != len(returns):
         raise ValueError("raw_signals length must match returns length")
+    if vol_window <= 0:
+        raise ValueError("vol_window must be positive")
     if periods_per_year <= 0:
         raise ValueError("periods_per_year must be positive")
 
@@ -53,7 +56,7 @@ def scale_positions_with_risk(
     positions: list[float] = []
     prev = 0.0
     for i, signal in enumerate(raw_signals):
-        start = max(0, i - 19)
+        start = max(0, i - vol_window + 1)
         vol_sample = returns[start : i + 1]
         realized_vol = statistics.pstdev(vol_sample) * annualizer if len(vol_sample) > 1 else 0.0
         vol_denom = max(realized_vol, min_vol_floor)
@@ -64,4 +67,3 @@ def scale_positions_with_risk(
         positions.append(next_position)
         prev = next_position
     return positions
-

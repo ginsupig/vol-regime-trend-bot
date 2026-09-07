@@ -49,6 +49,7 @@ def run_backtest(
     positions = scale_positions_with_risk(
         raw_signals=raw_signals,
         returns=returns,
+        vol_window=strategy_config.vol_window,
         periods_per_year=backtest_config.periods_per_year,
         target_vol=risk_config.target_vol,
         max_exposure=risk_config.max_exposure,
@@ -64,7 +65,7 @@ def run_backtest(
         turnover = abs(position - prev_position)
         if turnover > 1e-12:
             trades += 1
-        pnl.append((position * period_return) - (turnover * fee_rate))
+        pnl.append((prev_position * period_return) - (turnover * fee_rate))
         prev_position = position
 
     equity = [1.0]

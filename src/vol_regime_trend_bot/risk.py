@@ -34,11 +34,12 @@ def apply_volatility_targeting(
     target_period_vol = target_annual_volatility / np.sqrt(periods_per_year)
     safe_vol = realized_volatility.replace(0.0, np.nan)
     scale = (target_period_vol / safe_vol).replace([np.inf, -np.inf], np.nan).fillna(0.0)
-    sized = raw_target_positions.astype(float) * scale
+    raw = raw_target_positions.astype(float)
+    sized = raw * scale
 
     abs_sized = sized.abs().clip(lower=0.0, upper=max_leverage)
     enforced = np.where(
-        raw_target_positions.astype(float).abs() > 0,
+        raw.abs() > 0,
         np.maximum(abs_sized, min_abs_position),
         0.0,
     )

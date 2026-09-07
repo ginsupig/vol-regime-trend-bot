@@ -45,6 +45,12 @@ def run_backtest(
         timestamp_column=timestamp_column,
         volume_column=volume_column,
     )
+    if (execution_adapter is not None or execution_state_path is not None) and not isinstance(
+        prepared.index, pd.DatetimeIndex
+    ):
+        raise ValueError(
+            "execution intents/state require timestamped data; provide timestamp_column or a DatetimeIndex"
+        )
     freq = infer_periods_per_year(
         prepared.index,
         fallback_periods_per_year=config.periods_per_year,

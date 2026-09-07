@@ -30,6 +30,7 @@ def compose_signal(trend_signal: pd.Series, regime_signal: pd.Series) -> pd.Seri
 
 
 def build_signal_pipeline(prices: pd.Series, config: BacktestConfig) -> pd.DataFrame:
+    config.validate()
     trend_signal = compute_trend_signal(prices, config.trend_window)
     realized_vol = compute_realized_volatility(prices, config.vol_window)
     regime_signal = compute_volatility_regime_signal(

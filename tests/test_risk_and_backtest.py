@@ -238,6 +238,19 @@ def test_execution_idempotency_and_state_restore(tmp_path):
     assert set(payload["seen_intent_keys"]) == first_keys
 
 
+def test_execution_state_requires_timestamped_data(tmp_path):
+    data = pd.DataFrame({"close": [100, 101, 102]})
+    cfg = BacktestConfig(trend_window=2, vol_window=2)
+    adapter = PaperExecutionAdapter()
+    with pytest.raises(ValueError, match="require timestamped data"):
+        run_backtest(
+            data,
+            cfg,
+            execution_adapter=adapter,
+            execution_state_path=str(tmp_path / "state.json"),
+        )
+
+
 def test_smoke_integration_backtest_fixture_runs_end_to_end(tmp_path):
     csv_path = tmp_path / "fixture.csv"
     pd.DataFrame(

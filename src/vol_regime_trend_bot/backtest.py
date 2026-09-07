@@ -24,10 +24,10 @@ class BacktestResult:
 def _compute_returns(prices: list[float]) -> list[float]:
     if len(prices) < 2:
         raise ValueError("Need at least 2 price points")
+    if any(price <= 0 for price in prices):
+        raise ValueError("Prices must be positive")
     returns = [0.0]
     for prev, current in zip(prices[:-1], prices[1:]):
-        if prev <= 0:
-            raise ValueError("Prices must be positive")
         returns.append((current / prev) - 1.0)
     return returns
 

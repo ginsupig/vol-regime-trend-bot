@@ -18,6 +18,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--target-vol", type=float, default=0.12)
     parser.add_argument("--max-exposure", type=float, default=1.0)
     parser.add_argument("--max-position-change", type=float, default=0.25)
+    parser.add_argument("--min-vol-floor", type=float, default=1e-6)
     parser.add_argument("--periods-per-year", type=int, default=252)
     parser.add_argument("--fee-bps", type=float, default=1.0)
     return parser
@@ -63,6 +64,7 @@ def main(argv: list[str] | None = None) -> int:
                 target_vol=args.target_vol,
                 max_exposure=args.max_exposure,
                 max_position_change=args.max_position_change,
+                min_vol_floor=args.min_vol_floor,
             ),
             backtest_config=BacktestConfig(
                 periods_per_year=args.periods_per_year,
@@ -87,4 +89,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

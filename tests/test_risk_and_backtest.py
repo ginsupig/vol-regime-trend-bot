@@ -1,4 +1,5 @@
 import math
+import pytest
 
 from vol_regime_trend_bot.backtest import run_backtest
 from vol_regime_trend_bot.config import BacktestConfig, RiskConfig, StrategyConfig
@@ -54,3 +55,8 @@ def test_backtest_uses_one_period_execution_lag():
     )
 
     assert math.isclose(result.total_return, -0.5, rel_tol=1e-9, abs_tol=1e-9)
+
+
+def test_backtest_rejects_non_positive_prices():
+    with pytest.raises(ValueError, match="Prices must be positive"):
+        run_backtest([100, 0, 101])

@@ -28,5 +28,5 @@ vol-regime-backtest --csv ./prices.csv --price-column close --periods-per-year 2
 Optional controls:
 
 - `--vol-window`, `--trend-window`, `--vol-threshold`
-- `--target-vol`, `--max-exposure`, `--max-position-change`
+- `--target-vol`, `--max-exposure`, `--max-position-change`, `--min-vol-floor`
 - `--fee-bps`

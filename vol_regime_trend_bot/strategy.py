@@ -56,12 +56,13 @@ def generate_signals(closes: list[float], config: StrategyConfig) -> list[int]:
             continue
 
         current_vol = _stdev(returns)
-        vol_history.append(current_vol)
         if len(vol_history) < config.regime_window:
+            vol_history.append(current_vol)
             signals.append(0)
             continue
 
         low_vol_regime = current_vol <= median(vol_history)
+        vol_history.append(current_vol)
         trend_ma = sum(trend_prices) / len(trend_prices)
 
         if low_vol_regime and curr > trend_ma:

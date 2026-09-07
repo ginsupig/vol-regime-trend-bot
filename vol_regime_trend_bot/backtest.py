@@ -89,16 +89,15 @@ def run_backtest(
         position = float(signals[i - 1]) * size
         pnl = position * instrument_ret
 
-        if prior_position == 0.0 and position != 0.0:
-            trade_count += 1
-            active_trade_pnl = 0.0
-
-        active_trade_pnl += pnl
-
-        if prior_position != 0.0 and position != prior_position:
-            if active_trade_pnl > 0:
+        if prior_position != position:
+            if prior_position != 0.0 and active_trade_pnl > 0:
                 winning_trade_count += 1
+            if position != 0.0:
+                trade_count += 1
             active_trade_pnl = 0.0
+
+        if position != 0.0:
+            active_trade_pnl += pnl
 
         pnl_returns.append(pnl)
         equity_curve.append(equity_curve[-1] * (1.0 + pnl))
@@ -113,7 +112,13 @@ def run_backtest(
     mean_ret = sum(pnl_returns) / n if n else 0.0
     realized_vol = _stdev(pnl_returns)
     annualized_vol = realized_vol * sqrt(periods_per_year)
-    annualized_return = ((1.0 + total_return) ** (periods_per_year / n) - 1.0) if n > 0 else 0.0
+    ending_equity = equity_curve[-1]
+    if n == 0:
+        annualized_return = 0.0
+    elif ending_equity <= 0:
+        annualized_return = -1.0
+    else:
+        annualized_return = (ending_equity ** (periods_per_year / n)) - 1.0
     sharpe = (mean_ret / realized_vol * sqrt(periods_per_year)) if realized_vol > 0 else 0.0
     max_drawdown = _max_drawdown(equity_curve)
     win_rate = (winning_trade_count / trade_count) if trade_count > 0 else 0.0

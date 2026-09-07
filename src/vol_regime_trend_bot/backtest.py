@@ -8,11 +8,19 @@ from .risk import apply_exposure_limits
 from .strategy import generate_target_positions
 
 
-def _validate_input_data(data: pd.DataFrame, price_column: str) -> None:
+def _validate_input_data(data: pd.DataFrame, price_column: str) -> pd.Series:
     if data.empty:
         raise ValueError("input data is empty")
     if price_column not in data.columns:
         raise ValueError(f"missing required price column: {price_column}")
+    prices = pd.to_numeric(data[price_column], errors="coerce")
+    if prices.isna().any():
+        raise ValueError(f"price column '{price_column}' must contain only finite numeric values")
+    if not np.isfinite(prices).all():
+        raise ValueError(f"price column '{price_column}' must contain only finite numeric values")
+    if (prices <= 0).any():
+        raise ValueError(f"price column '{price_column}' must contain only positive values")
+    return prices.astype(float)
 
 
 def run_backtest(
@@ -21,9 +29,7 @@ def run_backtest(
     price_column: str = "close",
 ) -> dict[str, Any]:
     config.validate()
-    _validate_input_data(data, price_column)
-
-    prices = data[price_column].astype(float)
+    prices = _validate_input_data(data, price_column)
     raw_target = generate_target_positions(prices, config)
     position = apply_exposure_limits(
         raw_target,
@@ -63,18 +69,26 @@ def run_backtest(
 
     metrics = {
         "total_return": total_return,
+        "final_equity": terminal_equity,
         "annual_return": float(annual_return),
         "annual_volatility": float(annual_vol),
         "sharpe": float(sharpe),
         "max_drawdown": float(drawdown.min()),
         "win_rate": win_rate,
         "trades": int((turnover.iloc[1:] > 0).sum()),
+        "average_turnover": float(turnover.iloc[1:].mean()),
+        "fee_drag": float(fees.sum()),
+        "average_abs_position": float(position.abs().mean()),
     }
 
     result = data.copy()
     result["position"] = position
     result["returns"] = returns
+    result["gross_return"] = gross_return
+    result["turnover"] = turnover
+    result["fees"] = fees
     result["net_return"] = net_return
     result["equity_curve"] = equity_curve
+    result["drawdown"] = drawdown
 
     return {"metrics": metrics, "results": result}

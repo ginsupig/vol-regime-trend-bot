@@ -15,6 +15,6 @@ Use `--periods-per-year` to match your data frequency (default `252` for daily b
 
 - Volatility regime + trend-filter signal generation
 - Position exposure controls (max absolute position and max position change per step)
-- Backtest engine with fees, equity curve, and core performance metrics
+- Backtest engine with fees, turnover, drawdown, equity curve, and core performance metrics
 - CLI entrypoint: `vol-regime-backtest`
 - Pytest coverage for strategy, risk controls, and backtest validation

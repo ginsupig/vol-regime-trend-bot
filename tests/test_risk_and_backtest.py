@@ -20,7 +20,9 @@ def test_run_backtest_returns_metrics_and_result_columns():
 
     out = run_backtest(data, cfg)
 
-    assert set(["position", "returns", "net_return", "equity_curve"]).issubset(out["results"].columns)
+    assert set(
+        ["position", "returns", "gross_return", "turnover", "fees", "net_return", "equity_curve", "drawdown"]
+    ).issubset(out["results"].columns)
     assert out["metrics"]["trades"] == 4
     assert out["metrics"]["max_drawdown"] <= 0
 
@@ -42,6 +44,10 @@ def test_run_backtest_metrics_are_consistent_with_results():
         results["net_return"].mean() / results["net_return"].std(ddof=0) * (cfg.periods_per_year**0.5)
     )
     assert metrics["sharpe"] == pytest.approx(expected_sharpe)
+    assert metrics["final_equity"] == pytest.approx(results["equity_curve"].iloc[-1])
+    assert metrics["average_turnover"] == pytest.approx(results["turnover"].iloc[1:].mean())
+    assert metrics["fee_drag"] == pytest.approx(results["fees"].sum())
+    assert metrics["average_abs_position"] == pytest.approx(results["position"].abs().mean())
 
     active = (results["position"].shift(1).fillna(0.0) != 0.0) | (
         (results["position"] - results["position"].shift(1).fillna(0.0)).abs() > 0.0
@@ -55,4 +61,21 @@ def test_run_backtest_validates_missing_price_column():
     cfg = BacktestConfig(trend_window=2, vol_window=2)
 
     with pytest.raises(ValueError, match="missing required price column"):
+        run_backtest(data, cfg)
+
+
+@pytest.mark.parametrize(
+    ("prices", "message"),
+    [
+        ([100.0, 0.0, 101.0], "only positive values"),
+        ([100.0, -1.0, 101.0], "only positive values"),
+        ([100.0, float("nan"), 101.0], "finite numeric values"),
+        ([100.0, float("inf"), 101.0], "finite numeric values"),
+    ],
+)
+def test_run_backtest_validates_price_values(prices, message):
+    data = pd.DataFrame({"close": prices})
+    cfg = BacktestConfig(trend_window=2, vol_window=2)
+
+    with pytest.raises(ValueError, match=message):
         run_backtest(data, cfg)

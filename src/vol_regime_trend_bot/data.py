@@ -118,19 +118,12 @@ def infer_periods_per_year(
                 scaled = max(int(round(freq_map[base] / step)), 1)
                 return FrequencyResolution(periods_per_year=scaled, source=f"inferred:{inferred}")
     naive_index = index.tz_localize(None)
-    business_days = naive_index.normalize().to_numpy(dtype="datetime64[D]")
-    if len(business_days) >= 2 and (naive_index.day_of_week < 5).all():
-        business_deltas = np.array(
-            [
-                np.busday_count(business_days[i], business_days[i + 1])
-                for i in range(len(business_days) - 1)
-            ],
-            dtype=int,
-        )
-        if (business_deltas > 0).all() and len(np.unique(business_deltas)) == 1:
-            step = int(business_deltas[0])
-            scaled = max(int(round(252 / step)), 1)
-            return FrequencyResolution(periods_per_year=scaled, source=f"inferred:{step}B")
+    if len(naive_index) >= 2 and (naive_index.day_of_week < 5).all():
+        for step in range(1, 11):
+            offset = pd.offsets.BusinessDay(step)
+            if all((naive_index[i] + offset) == naive_index[i + 1] for i in range(len(naive_index) - 1)):
+                scaled = max(int(round(252 / step)), 1)
+                return FrequencyResolution(periods_per_year=scaled, source=f"inferred:{step}B")
 
     deltas = np.diff(index.view("int64"))
     if len(deltas) == 0:

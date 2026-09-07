@@ -64,7 +64,7 @@ def run_backtest(
         turnover = abs(position - prev_position)
         if turnover > 1e-12:
             trades += 1
-        pnl.append((prev_position * period_return) - (turnover * fee_rate))
+        pnl.append((position * period_return) - (turnover * fee_rate))
         prev_position = position
 
     equity = [1.0]
@@ -73,7 +73,10 @@ def run_backtest(
 
     total_return = equity[-1] - 1.0
     n_periods = len(pnl)
-    annual_return = (1.0 + total_return) ** (backtest_config.periods_per_year / max(n_periods, 1)) - 1.0
+    if equity[-1] <= 0:
+        annual_return = -1.0
+    else:
+        annual_return = equity[-1] ** (backtest_config.periods_per_year / max(n_periods, 1)) - 1.0
     period_vol = statistics.pstdev(pnl) if len(pnl) > 1 else 0.0
     annual_volatility = period_vol * math.sqrt(backtest_config.periods_per_year)
     sharpe = 0.0 if annual_volatility == 0 else (statistics.mean(pnl) * backtest_config.periods_per_year) / annual_volatility
@@ -100,4 +103,3 @@ def run_backtest(
         trades=trades,
         periods_per_year=backtest_config.periods_per_year,
     )
-

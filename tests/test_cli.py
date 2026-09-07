@@ -21,3 +21,13 @@ def test_cli_returns_error_code_for_missing_file(capsys):
     assert code == 2
     assert "error:" in captured.err
 
+
+def test_cli_returns_error_for_invalid_csv_payload(tmp_path, capsys):
+    csv_path = tmp_path / "prices.csv"
+    csv_path.write_text("close\n100\nabc\n", encoding="utf-8")
+
+    code = main(["--csv", str(csv_path)])
+    captured = capsys.readouterr()
+
+    assert code == 2
+    assert "Invalid price" in captured.err

@@ -21,7 +21,7 @@ def test_run_backtest_returns_metrics_and_result_columns():
     out = run_backtest(data, cfg)
 
     assert set(["position", "returns", "net_return", "equity_curve"]).issubset(out["results"].columns)
-    assert out["metrics"]["trades"] >= 0
+    assert out["metrics"]["trades"] == 4
     assert out["metrics"]["max_drawdown"] <= 0
 
 

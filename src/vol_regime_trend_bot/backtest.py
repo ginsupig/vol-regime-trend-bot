@@ -39,8 +39,6 @@ def run_backtest(
     net_return = gross_return - fees
 
     equity_curve = (1.0 + net_return).cumprod()
-    if bool((equity_curve <= 0).any()):
-        raise ValueError("equity curve became non-positive; annualized metrics are undefined")
 
     periods_per_year = config.periods_per_year
     observed_periods = max(len(net_return) - 1, 1)
@@ -70,7 +68,7 @@ def run_backtest(
         "sharpe": float(sharpe),
         "max_drawdown": float(drawdown.min()),
         "win_rate": win_rate,
-        "trades": int((position != 0.0).ne((position != 0.0).shift(1).fillna(False)).sum()),
+        "trades": int((turnover.iloc[1:] > 0).sum()),
     }
 
     result = data.copy()

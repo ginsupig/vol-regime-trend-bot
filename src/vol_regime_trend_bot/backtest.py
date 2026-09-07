@@ -65,7 +65,7 @@ def run_backtest(
         turnover = abs(position - prev_position)
         if turnover > 1e-12:
             trades += 1
-        pnl.append((prev_position * period_return) - (turnover * fee_rate))
+        pnl.append((position * period_return) - (turnover * fee_rate))
         prev_position = position
 
     equity = [1.0]

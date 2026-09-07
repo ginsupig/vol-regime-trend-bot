@@ -12,7 +12,7 @@ class StrategyConfig:
 
 @dataclass(frozen=True)
 class RiskConfig:
-    """Risk controls; target_vol is annualized and fee scaling uses exposure units."""
+    """Risk controls; target_vol is annualized and other values constrain sizing dynamics."""
 
     target_vol: float = 0.12
     max_exposure: float = 1.0

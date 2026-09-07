@@ -31,3 +31,14 @@ def test_cli_returns_error_for_invalid_csv_payload(tmp_path, capsys):
 
     assert code == 2
     assert "Invalid price" in captured.err
+
+
+def test_cli_rejects_invalid_window_argument(tmp_path, capsys):
+    csv_path = tmp_path / "prices.csv"
+    csv_path.write_text("close\n100\n101\n", encoding="utf-8")
+
+    code = main(["--csv", str(csv_path), "--trend-window", "0"])
+    captured = capsys.readouterr()
+
+    assert code == 2
+    assert "--trend-window must be positive" in captured.err

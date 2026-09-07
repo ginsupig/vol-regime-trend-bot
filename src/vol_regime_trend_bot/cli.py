@@ -47,11 +47,33 @@ def _read_prices(path: str, price_column: str) -> list[float]:
     return prices
 
 
+def _validate_args(args: argparse.Namespace) -> None:
+    if args.vol_window <= 0:
+        raise ValueError("--vol-window must be positive")
+    if args.trend_window <= 0:
+        raise ValueError("--trend-window must be positive")
+    if args.vol_threshold < 0:
+        raise ValueError("--vol-threshold must be non-negative")
+    if args.target_vol < 0:
+        raise ValueError("--target-vol must be non-negative")
+    if args.max_exposure < 0:
+        raise ValueError("--max-exposure must be non-negative")
+    if args.max_position_change < 0:
+        raise ValueError("--max-position-change must be non-negative")
+    if args.min_vol_floor <= 0:
+        raise ValueError("--min-vol-floor must be positive")
+    if args.periods_per_year <= 0:
+        raise ValueError("--periods-per-year must be positive")
+    if args.fee_bps < 0:
+        raise ValueError("--fee-bps must be non-negative")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
     try:
+        _validate_args(args)
         prices = _read_prices(args.csv, args.price_column)
         result = run_backtest(
             prices=prices,

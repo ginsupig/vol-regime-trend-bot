@@ -42,6 +42,19 @@ improvement — better on all four metrics in all three sub-periods — but it i
 improvement to a losing configuration, not a winning one. Use this as a
 measurement harness, not as a reason to allocate capital.
 
+Each backtest now also reports:
+
+- `win_rate`: active-bar win rate (legacy behavior; not trade accuracy),
+- `profit_factor`: active-bar profit factor on net returns,
+- `trade_analytics`: trade-sequence win rate, profit factor, expectancy,
+  average win/loss, and average holding period,
+- `exposure_analytics`: time in market and realized exposure usage,
+- `regime_analytics`: bar-level win rate / profit factor split by regime on vs off.
+
+Treat the trade metrics as instrumentation, not proof of edge: they describe the
+realized path on the tested sample, and can improve while benchmark-relative
+timing skill remains weak.
+
 ### Why the trend filter is off by default
 
 `use_trend_filter` defaults to `False` because the filter is measurably

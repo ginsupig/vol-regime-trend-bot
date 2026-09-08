@@ -9,6 +9,9 @@ from typing import Any, get_type_hints
 
 @dataclass(frozen=True)
 class BacktestConfig:
+    # Off by default: measured subtractive on two independent universes. See
+    # README "Why the trend filter is off by default".
+    use_trend_filter: bool = False
     trend_window: int = 50
     vol_window: int = 20
     max_volatility: float = 0.03
@@ -51,7 +54,17 @@ class BacktestConfig:
 
     @classmethod
     def from_env(cls, prefix: str = "VRTB_") -> dict[str, Any]:
+        def _parse_bool(raw: str) -> bool:
+            lowered = raw.strip().lower()
+            if lowered in {"1", "true", "yes", "on"}:
+                return True
+            if lowered in {"0", "false", "no", "off"}:
+                return False
+            raise ValueError(raw)
+
+        # bool must precede int: bool("false") is True, and bool subclasses int.
         type_map: dict[type, Any] = {
+            bool: _parse_bool,
             int: int,
             float: float,
             str: str,

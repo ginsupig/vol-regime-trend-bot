@@ -26,6 +26,43 @@ def _log_event(event: str, **payload: Any) -> None:
     LOGGER.info(json.dumps({"event": event, **payload}, sort_keys=True, default=str))
 
 
+def matched_exposure_benchmark(
+    returns: pd.Series,
+    exposure: float,
+    periods_per_year: int,
+    cost_rate: float,
+) -> dict[str, float]:
+    """Buy and hold `exposure` of the asset, held constant, over the same bars.
+
+    Exposure is the strategy's own mean absolute position, so this isolates
+    *timing* from *risk level*. A strategy that is flat half the time is
+    automatically compared against holding half as much, all the time -- not
+    against a full-size book it was never running alongside.
+    """
+    ret = returns.to_numpy(dtype=float)
+    if len(ret) == 0:
+        return {"annual_return": 0.0, "sharpe": 0.0, "max_drawdown": 0.0,
+                "average_drawdown": 0.0, "exposure": float(exposure)}
+
+    position = np.full(len(ret), float(exposure))
+    previous = np.concatenate([[0.0], position[:-1]])
+    net = previous * ret - np.abs(position - previous) * cost_rate
+    equity = np.cumprod(1.0 + net)
+    drawdown = equity / np.maximum.accumulate(equity) - 1.0
+
+    observed = max(len(net) - 1, 1)
+    total = float(equity[-1]) - 1.0
+    annual = (1.0 + total) ** (periods_per_year / observed) - 1.0 if 1.0 + total > 0 else -1.0
+    deviation = float(net.std(ddof=0))
+    return {
+        "annual_return": float(annual),
+        "sharpe": float(net.mean() / deviation * np.sqrt(periods_per_year)) if deviation > 0 else 0.0,
+        "max_drawdown": float(drawdown.min()),
+        "average_drawdown": float(drawdown.mean()),
+        "exposure": float(exposure),
+    }
+
+
 def run_backtest(
     data: pd.DataFrame,
     config: BacktestConfig,
@@ -146,12 +183,19 @@ def run_backtest(
                 "annual_volatility": 0.0,
                 "sharpe": 0.0,
                 "max_drawdown": float(execution_state.current_drawdown),
+                "average_drawdown": 0.0,
                 "win_rate": 0.0,
                 "trades": 0,
                 "average_turnover": 0.0,
                 "fee_drag": 0.0,
                 "slippage_drag": 0.0,
                 "average_abs_position": 0.0,
+                "benchmark": matched_exposure_benchmark(
+                    processed_returns, 0.0, periods_per_year, 0.0
+                ),
+                "excess_annual_return": 0.0,
+                "excess_sharpe": 0.0,
+                "drawdown_reduction": 0.0,
                 "periods_per_year": int(periods_per_year),
                 "annualization_source": freq.source,
                 "kill_switch_events": 0,
@@ -295,6 +339,11 @@ def run_backtest(
     regime_active = processed_signal["regime_signal"] > 0.0
     regime_net_returns = net_return[regime_active]
 
+    average_abs_position = float(position.abs().mean())
+    benchmark = matched_exposure_benchmark(
+        processed_returns, average_abs_position, periods_per_year, cost_rate
+    )
+
     metrics = {
         "total_return": total_return,
         "final_equity": terminal_equity,
@@ -302,12 +351,20 @@ def run_backtest(
         "annual_volatility": float(annual_vol),
         "sharpe": float(sharpe),
         "max_drawdown": max_drawdown,
+        # Max drawdown is a single episode. Time-averaged drawdown weights every
+        # bar, and the two can disagree: a book that caps its worst episode can
+        # still spend far more of its life underwater.
+        "average_drawdown": float(drawdown.mean()) if len(drawdown) > 0 else 0.0,
         "win_rate": win_rate,
         "trades": int((turnover.iloc[1:] > 0).sum()),
         "average_turnover": avg_turnover,
         "fee_drag": float(fees.sum()),
         "slippage_drag": float(slippage.sum()),
-        "average_abs_position": float(position.abs().mean()),
+        "average_abs_position": average_abs_position,
+        "benchmark": benchmark,
+        "excess_annual_return": float(annual_return) - benchmark["annual_return"],
+        "excess_sharpe": float(sharpe) - benchmark["sharpe"],
+        "drawdown_reduction": max_drawdown - benchmark["max_drawdown"],
         "periods_per_year": int(periods_per_year),
         "annualization_source": freq.source,
         "kill_switch_events": int(kill_switch_series.sum()),

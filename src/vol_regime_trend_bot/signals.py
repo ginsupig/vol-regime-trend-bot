@@ -39,7 +39,14 @@ def build_signal_pipeline(prices: pd.Series, config: BacktestConfig) -> pd.DataF
         max_volatility=config.max_volatility,
         realized_vol=realized_vol,
     )
-    raw_signal = compose_signal(trend_signal, regime_signal)
+    # The trend signal is always computed and reported, but only gates the book
+    # when explicitly enabled -- it is measured subtractive on both universes
+    # tested (see README).
+    raw_signal = (
+        compose_signal(trend_signal, regime_signal)
+        if config.use_trend_filter
+        else regime_signal.astype(float)
+    )
     return pd.DataFrame(
         {
             "trend_signal": trend_signal.astype(float),

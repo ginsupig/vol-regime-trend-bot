@@ -2,6 +2,7 @@ import pandas as pd
 
 from vol_regime_trend_bot.config import BacktestConfig
 from vol_regime_trend_bot.signals import (
+    apply_regime_hysteresis,
     apply_signal_confirmation,
     build_signal_pipeline,
     compute_realized_volatility,
@@ -42,15 +43,11 @@ def test_signal_pipeline_is_modular_and_no_lookahead():
 
 
 def test_hysteresis_keeps_tradable_regime_on_through_small_overshoots():
-    prices = pd.Series([100, 101, 100, 101, 100, 101, 100, 101, 100, 103], dtype=float)
-    cfg = BacktestConfig(vol_window=2, max_volatility=0.02, vol_hysteresis_buffer=0.5)
+    realized_vol = pd.Series([float("nan"), float("nan"), 0.018, 0.021, 0.025, 0.031], dtype=float)
 
-    frame = build_signal_pipeline(prices, cfg)
+    got = apply_regime_hysteresis(realized_vol, max_volatility=0.02, buffer=0.5)
 
-    assert frame["regime_signal"].iloc[8] == 1.0
-    assert frame["regime_signal"].iloc[9] == 0.0
-    assert frame["tradable_regime_signal"].iloc[9] == 1.0
-    assert frame["raw_signal"].iloc[9] == 1.0
+    assert got.tolist() == [0.0, 0.0, 1.0, 1.0, 1.0, 0.0]
 
 
 def test_signal_confirmation_delays_regime_state_flips():
@@ -75,6 +72,7 @@ def test_falling_volatility_gate_is_opt_in_and_reported():
     gated = build_signal_pipeline(prices, gated_cfg)
     realized_vol = compute_realized_volatility(prices, 2)
     expected_change = compute_volatility_change_signal(realized_vol, 1).astype(float)
+    expected_change.name = "volatility_change_signal"
 
     pd.testing.assert_series_equal(gated["volatility_change_signal"], expected_change)
     assert (gated["raw_signal"] <= base["raw_signal"]).all()

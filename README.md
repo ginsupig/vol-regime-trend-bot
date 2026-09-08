@@ -19,6 +19,57 @@ vol-regime-backtest \
   --log-level INFO
 ```
 
+## Measured performance (read this before using it)
+
+Every run reports a **matched-exposure benchmark**: buy and hold the strategy's
+own mean absolute position, held constant, over the same bars. Exposure is
+matched so the comparison isolates *timing* from *risk level* — a book that is
+flat half the time is compared against holding half as much all the time, not
+against a full-size book it was never running alongside.
+
+On the survivorship-free point-in-time S&P panel (628 names including delisted
+tickers such as ATVI/FRC/SIVB/TWTR/PXD, 2016–2026, exposure-matched per
+name-era cell), percentage of cells where the strategy **beats** that benchmark:
+
+| arm | max DD | avg DD | CAGR | Sharpe |
+|---|---|---|---|---|
+| trend filter ON (previous default) | 28.0% | 4.2% | 21.3% | 18.6% |
+| trend filter OFF (current default) | 45.3% | 11.2% | 23.5% | 26.5% |
+
+**Both are below 50% on every metric. This strategy does not beat holding a
+constant fraction of the asset.** Turning the trend filter off is a strict
+improvement — better on all four metrics in all three sub-periods — but it is an
+improvement to a losing configuration, not a winning one. Use this as a
+measurement harness, not as a reason to allocate capital.
+
+### Why the trend filter is off by default
+
+`use_trend_filter` defaults to `False` because the filter is measurably
+subtractive, reproduced on two independent universes:
+
+- 8 assets, 2000–2026 (SPY/QQQ/IWM/XLK/GLD/TLT/AAPL/NVDA): adding the trend
+  filter moves max-drawdown wins from 19/24 asset-era cells to 14/24, and
+  time-averaged-drawdown wins from 10/24 to 4/24 (p=0.0015 — significantly
+  *worse* than chance).
+- 628 PIT S&P names, 2016–2026: the table above, worse on all four metrics in
+  all three sub-periods.
+
+The mechanism is visible in the drawdown series: the filter exits after declines
+and re-enters after rallies, so it lags every recovery and spends more of its
+life underwater even when it caps the single worst episode.
+
+Set `use_trend_filter: true` (or `--use-trend-filter`) to restore the old
+behavior. The trend signal is always computed and reported in
+`results["trend_signal"]` either way.
+
+### Two drawdown numbers, deliberately
+
+`max_drawdown` is a single episode. `average_drawdown` weights every bar. They
+disagree, and the disagreement is the point: on the 8-asset test the strategy
+won 14/24 cells on max drawdown while losing 20/24 on time-averaged drawdown —
+it capped its worst day and paid for it by staying underwater longer. Judge on
+both.
+
 ## Runtime configuration
 
 `BacktestConfig` is the single runtime config surface.
@@ -33,6 +84,7 @@ Example config file:
 
 ```json
 {
+  "use_trend_filter": false,
   "trend_window": 50,
   "vol_window": 20,
   "max_volatility": 0.03,
@@ -106,10 +158,10 @@ Irregular timestamp spacing fails by default (`error`) and can be explicitly dow
 ## Architecture summary
 
 - `data.py`: OHLCV validation + timestamp/frequency handling
-- `signals.py`: modular trend/regime signal pipeline
+- `signals.py`: modular trend/regime signal pipeline (trend gating is opt-in)
 - `risk.py`: sizing + guardrails + drawdown protection
 - `execution.py`: paper adapter, idempotent order intents, checkpoint state
-- `backtest.py`: deterministic run loop, metrics, diagnostics
+- `backtest.py`: deterministic run loop, metrics, matched-exposure benchmark, diagnostics
 - `cli.py`: operator UX and config wiring
 
 ## Tests

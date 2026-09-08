@@ -23,6 +23,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--timestamp-column", default=None, help="Timestamp column to parse as UTC")
     parser.add_argument("--volume-column", default="volume", help="Volume column for validation")
 
+    trend = parser.add_mutually_exclusive_group()
+    trend.add_argument("--use-trend-filter", dest="use_trend_filter", action="store_true",
+                       default=None, help="Gate the book on the trend signal (measured subtractive)")
+    trend.add_argument("--no-trend-filter", dest="use_trend_filter", action="store_false",
+                       default=None, help="Size on the volatility regime alone (default)")
     parser.add_argument("--trend-window", type=int, default=None)
     parser.add_argument("--vol-window", type=int, default=None)
     parser.add_argument("--max-volatility", type=float, default=None)
@@ -56,8 +61,9 @@ def parse_args() -> argparse.Namespace:
     return build_parser().parse_args()
 
 
-def _build_cli_config(args: argparse.Namespace) -> dict[str, float | int | str]:
+def _build_cli_config(args: argparse.Namespace) -> dict[str, bool | float | int | str]:
     raw = {
+        "use_trend_filter": args.use_trend_filter,
         "trend_window": args.trend_window,
         "vol_window": args.vol_window,
         "max_volatility": args.max_volatility,

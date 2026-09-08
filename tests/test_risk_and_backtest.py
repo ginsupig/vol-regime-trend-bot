@@ -99,7 +99,8 @@ def test_run_backtest_metrics_are_consistent_with_results():
             mask=~regime_active,
         ),
     }
-    assert metrics["regime_analytics"] == pytest.approx(expected_regime_analytics)
+    for regime_name, expected_segment in expected_regime_analytics.items():
+        assert metrics["regime_analytics"][regime_name] == pytest.approx(expected_segment)
     assert metrics["exposure_analytics"]["time_in_market"] == pytest.approx(
         float((results["position"].abs() > 1e-12).mean())
     )

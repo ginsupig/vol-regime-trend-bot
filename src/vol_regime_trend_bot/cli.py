@@ -31,6 +31,24 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--trend-window", type=int, default=None)
     parser.add_argument("--vol-window", type=int, default=None)
     parser.add_argument("--max-volatility", type=float, default=None)
+    parser.add_argument("--vol-hysteresis-buffer", type=float, default=None)
+    vol_change = parser.add_mutually_exclusive_group()
+    vol_change.add_argument(
+        "--require-falling-volatility",
+        dest="require_falling_volatility",
+        action="store_true",
+        default=None,
+        help="Only trade when realized volatility is flat or falling",
+    )
+    vol_change.add_argument(
+        "--allow-rising-volatility",
+        dest="require_falling_volatility",
+        action="store_false",
+        default=None,
+        help="Disable the volatility-change gate (default)",
+    )
+    parser.add_argument("--volatility-change-window", type=int, default=None)
+    parser.add_argument("--signal-confirmation-bars", type=int, default=None)
     parser.add_argument("--max-abs-position", type=float, default=None)
     parser.add_argument("--min-abs-position", type=float, default=None)
     parser.add_argument("--max-position-change", type=float, default=None)
@@ -67,6 +85,10 @@ def _build_cli_config(args: argparse.Namespace) -> dict[str, bool | float | int 
         "trend_window": args.trend_window,
         "vol_window": args.vol_window,
         "max_volatility": args.max_volatility,
+        "vol_hysteresis_buffer": args.vol_hysteresis_buffer,
+        "require_falling_volatility": args.require_falling_volatility,
+        "volatility_change_window": args.volatility_change_window,
+        "signal_confirmation_bars": args.signal_confirmation_bars,
         "max_abs_position": args.max_abs_position,
         "min_abs_position": args.min_abs_position,
         "max_position_change": args.max_position_change,

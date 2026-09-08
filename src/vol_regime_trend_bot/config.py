@@ -15,6 +15,10 @@ class BacktestConfig:
     trend_window: int = 50
     vol_window: int = 20
     max_volatility: float = 0.03
+    vol_hysteresis_buffer: float = 0.0
+    require_falling_volatility: bool = False
+    volatility_change_window: int = 1
+    signal_confirmation_bars: int = 1
     max_abs_position: float = 1.0
     min_abs_position: float = 0.0
     max_position_change: float = 0.25
@@ -101,6 +105,12 @@ class BacktestConfig:
             raise ValueError("vol_window must be > 1")
         if self.max_volatility <= 0:
             raise ValueError("max_volatility must be > 0")
+        if self.vol_hysteresis_buffer < 0:
+            raise ValueError("vol_hysteresis_buffer must be >= 0")
+        if self.volatility_change_window <= 0:
+            raise ValueError("volatility_change_window must be > 0")
+        if self.signal_confirmation_bars <= 0:
+            raise ValueError("signal_confirmation_bars must be > 0")
         if self.max_abs_position <= 0:
             raise ValueError("max_abs_position must be > 0")
         if self.min_abs_position < 0:

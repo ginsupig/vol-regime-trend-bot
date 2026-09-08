@@ -269,6 +269,8 @@ def run_backtest(
             "returns",
             "trend_signal",
             "regime_signal",
+            "tradable_regime_signal",
+            "volatility_change_signal",
             "realized_vol",
             "raw_target",
             "sized_target",
@@ -550,6 +552,8 @@ def run_backtest(
     result["returns"] = processed_returns
     result["trend_signal"] = processed_signal["trend_signal"]
     result["regime_signal"] = processed_signal["regime_signal"]
+    result["tradable_regime_signal"] = processed_signal["tradable_regime_signal"]
+    result["volatility_change_signal"] = processed_signal["volatility_change_signal"]
     result["realized_vol"] = processed_signal["realized_vol"]
     result["raw_target"] = raw_target.loc[result_index]
     result["sized_target"] = sized_target.loc[result_index]

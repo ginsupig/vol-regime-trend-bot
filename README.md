@@ -101,6 +101,10 @@ Example config file:
   "trend_window": 50,
   "vol_window": 20,
   "max_volatility": 0.03,
+  "vol_hysteresis_buffer": 0.0,
+  "require_falling_volatility": false,
+  "volatility_change_window": 1,
+  "signal_confirmation_bars": 1,
   "max_abs_position": 1.0,
   "target_annual_volatility": 0.15,
   "drawdown_kill_switch": -0.2,
@@ -109,6 +113,16 @@ Example config file:
 ```
 
 Invalid or unknown config values fail fast with explicit errors.
+
+Signal upgrades are opt-in and preserve the current default behavior:
+
+- `vol_hysteresis_buffer`: keeps the tradable regime on until realized vol rises
+  above `max_volatility * (1 + buffer)`, reducing threshold whipsaw while leaving
+  `regime_signal` as the raw diagnostic.
+- `require_falling_volatility`: trades only when realized volatility is flat or
+  falling over `volatility_change_window`.
+- `signal_confirmation_bars`: requires the tradable regime state to persist for N
+  consecutive bars before flipping.
 
 ## Annualization behavior
 

@@ -31,6 +31,8 @@ def test_run_backtest_returns_metrics_and_result_columns():
             "returns",
             "trend_signal",
             "regime_signal",
+            "tradable_regime_signal",
+            "volatility_change_signal",
             "realized_vol",
             "raw_target",
             "sized_target",

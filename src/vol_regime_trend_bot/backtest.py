@@ -165,19 +165,39 @@ def run_backtest(
     starting_equity = equity
     rolling_peak = float(execution_state.rolling_peak)
     current_drawdown = float(execution_state.current_drawdown)
+    shadow_position = float(execution_state.shadow_position)
+    shadow_equity = float(execution_state.shadow_equity)
+    shadow_peak = float(execution_state.shadow_peak)
+    reference_drawdown = float(execution_state.reference_drawdown)
+    cost_rate = (config.fee_bps + config.slippage_bps) / 10_000.0
+    kill_switch_releases = 0
 
     for idx, target_position in processed_target.items():
-        protected_position, drawdown_state, kill_triggered = apply_drawdown_protection(
-            desired_position=float(target_position),
+        desired_position = float(target_position)
+        protected_position, drawdown_state, kill_triggered, reentered = apply_drawdown_protection(
+            desired_position=desired_position,
             current_drawdown=current_drawdown,
+            reference_drawdown=reference_drawdown,
             state=drawdown_state,
             kill_switch=config.drawdown_kill_switch,
             reentry_drawdown=config.drawdown_reentry,
             cooldown_bars=config.cooldown_bars,
         )
+        if reentered:
+            # Re-arm with a fresh drawdown budget. Measuring against the stale
+            # pre-kill peak would re-trip the switch on the first losing bar.
+            rolling_peak = equity
+            current_drawdown = 0.0
+            shadow_equity = equity
+            shadow_peak = equity
+            reference_drawdown = 0.0
+            kill_switch_releases += 1
+            _log_event("risk_kill_switch_released", timestamp=str(idx), equity=equity)
+
+        bar_return = float(processed_returns.loc[idx])
 
         turnover = abs(protected_position - prev_position)
-        gross_return = prev_position * float(processed_returns.loc[idx])
+        gross_return = prev_position * bar_return
         fees = turnover * (config.fee_bps / 10_000.0)
         slippage = turnover * (config.slippage_bps / 10_000.0)
         net_return = gross_return - fees - slippage
@@ -185,6 +205,15 @@ def run_backtest(
         equity *= 1.0 + net_return
         rolling_peak = max(rolling_peak, equity)
         current_drawdown = equity / rolling_peak - 1.0
+
+        # Reference curve: the same strategy with the kill switch removed. It
+        # keeps compounding while the real book is flat, so it is the only
+        # drawdown measure that can recover to the re-entry threshold.
+        shadow_net = shadow_position * bar_return - abs(desired_position - shadow_position) * cost_rate
+        shadow_equity *= 1.0 + shadow_net
+        shadow_peak = max(shadow_peak, shadow_equity)
+        reference_drawdown = shadow_equity / shadow_peak - 1.0
+        shadow_position = desired_position
 
         if execution_adapter is not None:
             ts = str(idx)
@@ -226,6 +255,10 @@ def run_backtest(
     execution_state.current_drawdown = current_drawdown
     execution_state.kill_active = drawdown_state.kill_active
     execution_state.cooldown_remaining = drawdown_state.cooldown_remaining
+    execution_state.shadow_position = shadow_position
+    execution_state.shadow_equity = shadow_equity
+    execution_state.shadow_peak = shadow_peak
+    execution_state.reference_drawdown = reference_drawdown
     if len(processed_prepared.index) > 0 and isinstance(processed_prepared.index, pd.DatetimeIndex):
         execution_state.last_timestamp = str(processed_prepared.index[-1])
     save_execution_state(execution_state_path, execution_state)
@@ -278,6 +311,7 @@ def run_backtest(
         "periods_per_year": int(periods_per_year),
         "annualization_source": freq.source,
         "kill_switch_events": int(kill_switch_series.sum()),
+        "kill_switch_releases": kill_switch_releases,
         "regime_win_rate": float((regime_net_returns > 0).mean()) if len(regime_net_returns) > 0 else 0.0,
     }
 

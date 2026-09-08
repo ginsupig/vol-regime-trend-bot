@@ -40,6 +40,11 @@ class ExecutionState:
     current_drawdown: float = 0.0
     kill_active: bool = False
     cooldown_remaining: int = 0
+    # Unprotected-strategy reference curve; gates kill-switch re-entry.
+    shadow_position: float = 0.0
+    shadow_equity: float = 1.0
+    shadow_peak: float = 1.0
+    reference_drawdown: float = 0.0
     seen_intent_keys: set[str] = field(default_factory=set)
 
     def to_json(self) -> str:
@@ -58,6 +63,12 @@ class ExecutionState:
             current_drawdown=float(payload.get("current_drawdown", 0.0)),
             kill_active=bool(payload.get("kill_active", False)),
             cooldown_remaining=int(payload.get("cooldown_remaining", 0)),
+            shadow_position=float(payload.get("shadow_position", 0.0)),
+            shadow_equity=float(payload.get("shadow_equity", payload.get("equity", 1.0))),
+            shadow_peak=float(payload.get("shadow_peak", payload.get("rolling_peak", 1.0))),
+            reference_drawdown=float(
+                payload.get("reference_drawdown", payload.get("current_drawdown", 0.0))
+            ),
             seen_intent_keys=set(payload.get("seen_intent_keys", [])),
         )
 

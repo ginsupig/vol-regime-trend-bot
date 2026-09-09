@@ -20,10 +20,117 @@ from .risk import DrawdownProtectionState, apply_drawdown_protection, apply_expo
 from .signals import build_signal_pipeline
 
 LOGGER = logging.getLogger(__name__)
+POSITION_EPSILON = 1e-12
 
 
 def _log_event(event: str, **payload: Any) -> None:
     LOGGER.info(json.dumps({"event": event, **payload}, sort_keys=True, default=str))
+
+
+def _profit_factor(returns: pd.Series) -> float:
+    values = returns.astype(float)
+    gains = float(values[values > 0.0].sum())
+    losses = float(-values[values < 0.0].sum())
+    if losses > 0.0:
+        return gains / losses
+    if gains > 0.0:
+        return float("inf")
+    return 0.0
+
+
+def _segment_analytics(
+    net_return: pd.Series,
+    position: pd.Series,
+    mask: pd.Series,
+) -> dict[str, float | int]:
+    segment_returns = net_return[mask]
+    segment_position = position[mask]
+    if len(segment_returns) == 0:
+        return {
+            "bars": 0,
+            "win_rate": 0.0,
+            "profit_factor": 0.0,
+            "mean_net_return": 0.0,
+            "average_abs_position": 0.0,
+        }
+    return {
+        "bars": int(len(segment_returns)),
+        "win_rate": float((segment_returns > 0.0).mean()),
+        "profit_factor": float(_profit_factor(segment_returns)),
+        "mean_net_return": float(segment_returns.mean()),
+        "average_abs_position": float(segment_position.abs().mean()),
+    }
+
+
+def _trade_analytics(
+    position: pd.Series,
+    turnover: pd.Series,
+    net_return: pd.Series,
+) -> dict[str, float | int]:
+    shifted_position = position.shift(1).fillna(0.0)
+    trade_returns: list[float] = []
+    holding_bars: list[int] = []
+    closed_flags: list[bool] = []
+    current_returns: list[float] | None = None
+    current_holding_bars = 0
+
+    for idx in position.index:
+        previous = float(shifted_position.loc[idx])
+        current = float(position.loc[idx])
+        traded = float(turnover.loc[idx]) > POSITION_EPSILON
+        opened = abs(previous) <= POSITION_EPSILON and abs(current) > POSITION_EPSILON and traded
+        closed = abs(previous) > POSITION_EPSILON and abs(current) <= POSITION_EPSILON
+        active = abs(previous) > POSITION_EPSILON or traded
+
+        if opened:
+            current_returns = []
+            current_holding_bars = 0
+
+        if current_returns is not None and active:
+            current_returns.append(float(net_return.loc[idx]))
+            current_holding_bars += int(abs(previous) > POSITION_EPSILON)
+
+        if current_returns is not None and closed:
+            trade_returns.append(float(np.prod(1.0 + np.asarray(current_returns, dtype=float)) - 1.0))
+            holding_bars.append(current_holding_bars)
+            closed_flags.append(True)
+            current_returns = None
+            current_holding_bars = 0
+
+    if current_returns is not None:
+        trade_returns.append(float(np.prod(1.0 + np.asarray(current_returns, dtype=float)) - 1.0))
+        holding_bars.append(current_holding_bars)
+        closed_flags.append(False)
+
+    if not trade_returns:
+        return {
+            "count": 0,
+            "closed_count": 0,
+            "open_count": 0,
+            "win_rate": 0.0,
+            "profit_factor": 0.0,
+            "expectancy": 0.0,
+            "average_win": 0.0,
+            "average_loss": 0.0,
+            "average_return": 0.0,
+            "average_holding_period": 0.0,
+        }
+
+    trade_return_series = pd.Series(trade_returns, dtype=float)
+    winners = trade_return_series[trade_return_series > 0.0]
+    losers = trade_return_series[trade_return_series < 0.0]
+    return {
+        "count": int(len(trade_return_series)),
+        "closed_count": int(sum(closed_flags)),
+        "open_count": int(len(closed_flags) - sum(closed_flags)),
+        "win_rate": float((trade_return_series > 0.0).mean()),
+        "profit_factor": float(_profit_factor(trade_return_series)),
+        "expectancy": float(trade_return_series.mean()),
+        "average_win": float(winners.mean()) if len(winners) > 0 else 0.0,
+        "average_loss": float(losers.mean()) if len(losers) > 0 else 0.0,
+        "average_return": float(trade_return_series.mean()),
+        "average_holding_period": float(np.mean(holding_bars)) if holding_bars else 0.0,
+    }
 
 
 def matched_exposure_benchmark(
@@ -162,6 +269,8 @@ def run_backtest(
             "returns",
             "trend_signal",
             "regime_signal",
+            "tradable_regime_signal",
+            "volatility_change_signal",
             "realized_vol",
             "raw_target",
             "sized_target",
@@ -185,11 +294,19 @@ def run_backtest(
                 "max_drawdown": float(execution_state.current_drawdown),
                 "average_drawdown": 0.0,
                 "win_rate": 0.0,
+                "active_bar_win_rate": 0.0,
+                "profit_factor": 0.0,
+                "active_bar_profit_factor": 0.0,
                 "trades": 0,
                 "average_turnover": 0.0,
                 "fee_drag": 0.0,
                 "slippage_drag": 0.0,
                 "average_abs_position": 0.0,
+                "exposure_analytics": {
+                    "time_in_market": 0.0,
+                    "average_active_abs_position": 0.0,
+                    "max_abs_position": 0.0,
+                },
                 "benchmark": matched_exposure_benchmark(
                     processed_returns, 0.0, periods_per_year, 0.0
                 ),
@@ -199,7 +316,36 @@ def run_backtest(
                 "periods_per_year": int(periods_per_year),
                 "annualization_source": freq.source,
                 "kill_switch_events": 0,
+                "kill_switch_releases": 0,
                 "regime_win_rate": 0.0,
+                "regime_analytics": {
+                    "regime_on": {
+                        "bars": 0,
+                        "win_rate": 0.0,
+                        "profit_factor": 0.0,
+                        "mean_net_return": 0.0,
+                        "average_abs_position": 0.0,
+                    },
+                    "regime_off": {
+                        "bars": 0,
+                        "win_rate": 0.0,
+                        "profit_factor": 0.0,
+                        "mean_net_return": 0.0,
+                        "average_abs_position": 0.0,
+                    },
+                },
+                "trade_analytics": {
+                    "count": 0,
+                    "closed_count": 0,
+                    "open_count": 0,
+                    "win_rate": 0.0,
+                    "profit_factor": 0.0,
+                    "expectancy": 0.0,
+                    "average_win": 0.0,
+                    "average_loss": 0.0,
+                    "average_return": 0.0,
+                    "average_holding_period": 0.0,
+                },
             },
             "results": empty,
         }
@@ -333,11 +479,26 @@ def run_backtest(
     shifted_position = position.shift(1).fillna(0.0)
     active_periods = (shifted_position != 0.0) | (turnover > 0.0)
     win_rate = float((net_return[active_periods] > 0).mean()) if bool(active_periods.any()) else 0.0
+    active_bar_profit_factor = float(_profit_factor(net_return[active_periods])) if bool(active_periods.any()) else 0.0
     avg_turnover = float(turnover.iloc[1:].mean()) if len(turnover) > 1 else 0.0
     max_drawdown = float(drawdown.min()) if len(drawdown) > 0 else 0.0
 
     regime_active = processed_signal["regime_signal"] > 0.0
     regime_net_returns = net_return[regime_active]
+    trade_analytics = _trade_analytics(position=position, turnover=turnover, net_return=net_return)
+    exposure_analytics = {
+        "time_in_market": float((position.abs() > POSITION_EPSILON).mean()) if len(position) > 0 else 0.0,
+        "average_active_abs_position": (
+            float(position[position.abs() > POSITION_EPSILON].abs().mean())
+            if bool((position.abs() > POSITION_EPSILON).any())
+            else 0.0
+        ),
+        "max_abs_position": float(position.abs().max()) if len(position) > 0 else 0.0,
+    }
+    regime_analytics = {
+        "regime_on": _segment_analytics(net_return=net_return, position=position, mask=regime_active),
+        "regime_off": _segment_analytics(net_return=net_return, position=position, mask=~regime_active),
+    }
 
     average_abs_position = float(position.abs().mean())
     benchmark = matched_exposure_benchmark(
@@ -356,11 +517,15 @@ def run_backtest(
         # still spend far more of its life underwater.
         "average_drawdown": float(drawdown.mean()) if len(drawdown) > 0 else 0.0,
         "win_rate": win_rate,
+        "active_bar_win_rate": win_rate,
+        "profit_factor": active_bar_profit_factor,
+        "active_bar_profit_factor": active_bar_profit_factor,
         "trades": int((turnover.iloc[1:] > 0).sum()),
         "average_turnover": avg_turnover,
         "fee_drag": float(fees.sum()),
         "slippage_drag": float(slippage.sum()),
         "average_abs_position": average_abs_position,
+        "exposure_analytics": exposure_analytics,
         "benchmark": benchmark,
         "excess_annual_return": float(annual_return) - benchmark["annual_return"],
         "excess_sharpe": float(sharpe) - benchmark["sharpe"],
@@ -370,6 +535,8 @@ def run_backtest(
         "kill_switch_events": int(kill_switch_series.sum()),
         "kill_switch_releases": kill_switch_releases,
         "regime_win_rate": float((regime_net_returns > 0).mean()) if len(regime_net_returns) > 0 else 0.0,
+        "regime_analytics": regime_analytics,
+        "trade_analytics": trade_analytics,
     }
 
     _log_event(
@@ -385,6 +552,8 @@ def run_backtest(
     result["returns"] = processed_returns
     result["trend_signal"] = processed_signal["trend_signal"]
     result["regime_signal"] = processed_signal["regime_signal"]
+    result["tradable_regime_signal"] = processed_signal["tradable_regime_signal"]
+    result["volatility_change_signal"] = processed_signal["volatility_change_signal"]
     result["realized_vol"] = processed_signal["realized_vol"]
     result["raw_target"] = raw_target.loc[result_index]
     result["sized_target"] = sized_target.loc[result_index]

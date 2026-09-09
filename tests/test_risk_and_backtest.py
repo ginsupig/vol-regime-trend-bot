@@ -5,7 +5,7 @@ import json
 import pandas as pd
 import pytest
 
-from vol_regime_trend_bot.backtest import run_backtest
+from vol_regime_trend_bot.backtest import _profit_factor, _segment_analytics, _trade_analytics, run_backtest
 from vol_regime_trend_bot.config import BacktestConfig
 from vol_regime_trend_bot.execution import PaperExecutionAdapter
 from vol_regime_trend_bot.risk import apply_exposure_limits
@@ -31,6 +31,8 @@ def test_run_backtest_returns_metrics_and_result_columns():
             "returns",
             "trend_signal",
             "regime_signal",
+            "tradable_regime_signal",
+            "volatility_change_signal",
             "realized_vol",
             "raw_target",
             "sized_target",
@@ -75,6 +77,41 @@ def test_run_backtest_metrics_are_consistent_with_results():
     active = (shifted != 0.0) | ((results["position"] - shifted).abs() > 0.0)
     expected_win_rate = float((results.loc[active, "net_return"] > 0).mean())
     assert metrics["win_rate"] == pytest.approx(expected_win_rate)
+    assert metrics["active_bar_win_rate"] == pytest.approx(expected_win_rate)
+    assert metrics["profit_factor"] == pytest.approx(_profit_factor(results.loc[active, "net_return"]))
+    assert metrics["active_bar_profit_factor"] == pytest.approx(_profit_factor(results.loc[active, "net_return"]))
+
+    expected_trade_analytics = _trade_analytics(
+        position=results["position"],
+        turnover=results["turnover"],
+        net_return=results["net_return"],
+    )
+    assert metrics["trade_analytics"] == pytest.approx(expected_trade_analytics)
+
+    regime_active = results["regime_signal"] > 0.0
+    expected_regime_analytics = {
+        "regime_on": _segment_analytics(
+            net_return=results["net_return"],
+            position=results["position"],
+            mask=regime_active,
+        ),
+        "regime_off": _segment_analytics(
+            net_return=results["net_return"],
+            position=results["position"],
+            mask=~regime_active,
+        ),
+    }
+    for regime_name, expected_segment in expected_regime_analytics.items():
+        assert metrics["regime_analytics"][regime_name] == pytest.approx(expected_segment)
+    assert metrics["exposure_analytics"]["time_in_market"] == pytest.approx(
+        float((results["position"].abs() > 1e-12).mean())
+    )
+    assert metrics["exposure_analytics"]["average_active_abs_position"] == pytest.approx(
+        float(results.loc[results["position"].abs() > 1e-12, "position"].abs().mean())
+    )
+    assert metrics["exposure_analytics"]["max_abs_position"] == pytest.approx(
+        float(results["position"].abs().max())
+    )
 
 
 def test_run_backtest_validates_missing_price_column():
@@ -271,3 +308,26 @@ def test_smoke_integration_backtest_fixture_runs_end_to_end(tmp_path):
     assert "metrics" in out
     assert "results" in out
     assert out["metrics"]["periods_per_year"] == 252
+
+
+def test_trade_analytics_capture_closed_trades():
+    position = pd.Series([1.0, 1.0, 0.0, 1.0, 1.0, 0.0], dtype=float)
+    turnover = pd.Series([1.0, 0.0, 1.0, 1.0, 0.0, 1.0], dtype=float)
+    net_return = pd.Series([-0.01, 0.05, -0.02, -0.01, -0.03, -0.02], dtype=float)
+
+    got = _trade_analytics(position=position, turnover=turnover, net_return=net_return)
+
+    trade_1 = (1.0 - 0.01) * (1.0 + 0.05) * (1.0 - 0.02) - 1.0
+    trade_2 = (1.0 - 0.01) * (1.0 - 0.03) * (1.0 - 0.02) - 1.0
+    expected_profit_factor = trade_1 / abs(trade_2)
+
+    assert got["count"] == 2
+    assert got["closed_count"] == 2
+    assert got["open_count"] == 0
+    assert got["win_rate"] == pytest.approx(0.5)
+    assert got["profit_factor"] == pytest.approx(expected_profit_factor)
+    assert got["expectancy"] == pytest.approx((trade_1 + trade_2) / 2.0)
+    assert got["average_win"] == pytest.approx(trade_1)
+    assert got["average_loss"] == pytest.approx(trade_2)
+    assert got["average_return"] == pytest.approx((trade_1 + trade_2) / 2.0)
+    assert got["average_holding_period"] == pytest.approx(2.0)

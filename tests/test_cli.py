@@ -35,6 +35,13 @@ def test_cli_passes_arguments_to_backtest(monkeypatch, capsys):
             "5",
             "--max-volatility",
             "0.02",
+            "--vol-hysteresis-buffer",
+            "0.1",
+            "--require-falling-volatility",
+            "--volatility-change-window",
+            "2",
+            "--signal-confirmation-bars",
+            "3",
             "--max-abs-position",
             "0.8",
             "--max-position-change",
@@ -53,6 +60,10 @@ def test_cli_passes_arguments_to_backtest(monkeypatch, capsys):
     assert captured["config"].trend_window == 10
     assert captured["config"].vol_window == 5
     assert captured["config"].max_volatility == pytest.approx(0.02)
+    assert captured["config"].vol_hysteresis_buffer == pytest.approx(0.1)
+    assert captured["config"].require_falling_volatility is True
+    assert captured["config"].volatility_change_window == 2
+    assert captured["config"].signal_confirmation_bars == 3
     assert captured["config"].max_abs_position == pytest.approx(0.8)
     assert captured["config"].max_position_change == pytest.approx(0.2)
     assert captured["config"].fee_bps == pytest.approx(3.0)

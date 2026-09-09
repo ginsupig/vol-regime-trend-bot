@@ -56,13 +56,24 @@ def test_trend_signal_is_still_reported_as_a_diagnostic_when_disabled():
 
 def test_trend_filter_round_trips_through_env_and_config_file(tmp_path, monkeypatch):
     assert BacktestConfig.from_dict({"use_trend_filter": True}).use_trend_filter is True
+    assert BacktestConfig.from_dict({"vol_hysteresis_buffer": 0.1}).vol_hysteresis_buffer == pytest.approx(0.1)
+    assert BacktestConfig.from_dict({"signal_confirmation_bars": 3}).signal_confirmation_bars == 3
 
     path = tmp_path / "cfg.json"
-    path.write_text('{"use_trend_filter": true}', encoding="utf-8")
+    path.write_text(
+        '{"use_trend_filter": true, "require_falling_volatility": true, "volatility_change_window": 2}',
+        encoding="utf-8",
+    )
     assert BacktestConfig.from_json_file(path)["use_trend_filter"] is True
+    assert BacktestConfig.from_json_file(path)["require_falling_volatility"] is True
 
     monkeypatch.setenv("VRTB_USE_TREND_FILTER", "false")
     assert BacktestConfig.from_env()["use_trend_filter"] is False
+    monkeypatch.setenv("VRTB_REQUIRE_FALLING_VOLATILITY", "true")
+    monkeypatch.setenv("VRTB_SIGNAL_CONFIRMATION_BARS", "4")
+    env = BacktestConfig.from_env()
+    assert env["require_falling_volatility"] is True
+    assert env["signal_confirmation_bars"] == 4
     monkeypatch.setenv("VRTB_USE_TREND_FILTER", "1")
     assert BacktestConfig.from_env()["use_trend_filter"] is True
     monkeypatch.setenv("VRTB_USE_TREND_FILTER", "banana")
